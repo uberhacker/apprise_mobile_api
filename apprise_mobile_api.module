@@ -1,0 +1,97 @@
+<?php
+
+/**
+ * @file
+ * An interface to the API for APPrise Mobile Clients.
+ */
+
+/**
+ * The default path to the APPrise Mobile API directory.
+ */
+define('APPRISE_MOBILE_API_PATH', drupal_get_path('module', 'apprise_mobile_api') . '/SwaggerClient-php');
+define('APPRISE_MOBILE_API_VERSION', '2.0.0');
+
+/**
+ * Implements hook_menu().
+ */
+function apprise_mobile_api_menu() {
+  $items = array();
+
+  $items['admin/config/content/apprise-mobile-api'] = array(
+    'title' => 'APPrise Mobile API',
+    'description' => 'Adjust APPrise Mobile API settings.',
+    'file' => 'apprise_mobile_api.admin.inc',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('apprise_mobile_api_admin_settings'),
+    'access arguments' => array('administer site configuration'),
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_cron().
+ */
+function apprise_mobile_api_cron() {
+  $cron = variable_get('apprise_mobile_api_cron', 0);
+  switch ($cron) {
+    case 1:
+      $run = TRUE;
+      break;
+
+    case 2:
+      // Only run cron between 12:00 and 1:00 AM.
+      // This works only if cron runs hourly or
+      // within this time frame (recommended).
+      $run = !format_date(time(), 'custom', 'G');
+      break;
+
+    default:
+      $run = FALSE;
+  }
+  if ($run) {
+    require_once(APPRISE_MOBILE_API_PATH . '/autoload.php');
+
+    // Limit of how many objects to fetch.
+    $limit = variable_get('apprise_mobile_api_limit', 10);
+
+    // How many objects to offset from 0.
+    $offset = variable_get('apprise_mobile_api_offset', 0);
+
+    // Get the error level.
+    $error_level = variable_get('error_level', 0);
+
+    try {
+      // Set the API key authorization code.
+      Swagger\Client\Configuration::getDefaultConfiguration()->setApiKey('code', variable_get('apprise_mobile_api_key', ''));
+
+      // Use an API key prefix, if needed.
+      if ($prefix = variable_get('apprise_mobile_api_prefix', '')) {
+        Swagger\Client\Configuration::getDefaultConfiguration()->setApiKeyPrefix('code', $prefix);
+      }
+
+      // Create ContentApi instance.
+      $api_instance = new Swagger\Client\Api\ContentApi();
+
+      // Post all articles that were added since yesterday.
+      // TODO: Add logic to post only relevant content.
+      $yesterday = strtotime('-1 day');
+      $rows = db_query("SELECT nid, title, FROM_UNIXTIME(created) AS added FROM {node} WHERE type = 'article' AND created >= :yesterday", array(':yesterday' => $yesterday));
+      foreach ($rows as $row) {
+        $url = url('node/' . $row->nid, array('absolute' => TRUE));
+        $result = $api_instance->contentsPost($row->nid, $row->title, $url, $row->added);
+        $response = print_r($result, TRUE);
+        if ($error_level) {
+          drupal_set_message($response);
+        }
+        watchdog('apprise_mobile_api', 'Article :title posted: :response', array(':title' => $row->title, ':response' => $response));
+      }
+    } catch (Exception $e) {
+      $msg = 'Exception when calling ContentApi->contentsPost: ' . $e->getMessage();
+      if ($error_level) {
+        drupal_set_message($msg, 'error');
+      }
+      watchdog('apprise_mobile_api', $msg, array(), WATCHDOG_ERROR);
+    }
+  }
+}

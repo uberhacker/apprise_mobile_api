@@ -1,0 +1,13 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the APPrise Mobile API module.
+ */
+
+/**
+ * Implements hook_uninstall().
+ */
+function apprise_mobile_api_uninstall() {
+  db_query("DELETE FROM {variable} WHERE name LIKE 'apprise_mobile_api_%'");
+}
