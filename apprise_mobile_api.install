@@ -11,3 +11,11 @@
 function apprise_mobile_api_uninstall() {
   db_query("DELETE FROM {variable} WHERE name LIKE 'apprise_mobile_api_%'");
 }
+
+/**
+ * Remove old variable settings.
+ */
+function apprise_mobile_api_update_7001() {
+  variable_del('apprise_mobile_api_key');
+  variable_del('apprise_mobile_api_prefix');
+}
