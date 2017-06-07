@@ -39,6 +39,7 @@ namespace Swagger\Client;
  */
 class Configuration
 {
+
     private static $defaultConfiguration;
 
     /**
@@ -88,7 +89,7 @@ class Configuration
      *
      * @var string
      */
-    protected $host = 'https://beta-api.indiciummobile.com/v2';
+    protected $host = APPRISE_MOBILE_API_HOST;
 
     /**
      * Timeout (second) of the HTTP request, by default set to 0, no timeout

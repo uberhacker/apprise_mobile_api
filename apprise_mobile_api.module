@@ -6,10 +6,14 @@
  */
 
 /**
- * The default path to the APPrise Mobile API directory.
+ * Define constants.
  */
-define('APPRISE_MOBILE_API_PATH', drupal_get_path('module', 'apprise_mobile_api') . '/SwaggerClient-php');
+
+// Set the API version.
 define('APPRISE_MOBILE_API_VERSION', '2.0.0');
+
+// Set the path to the API.
+define('APPRISE_MOBILE_API_PATH', drupal_get_path('module', 'apprise_mobile_api') . '/SwaggerClient-php');
 
 /**
  * Implements hook_menu().
@@ -33,65 +37,241 @@ function apprise_mobile_api_menu() {
  * Implements hook_cron().
  */
 function apprise_mobile_api_cron() {
-  $cron = variable_get('apprise_mobile_api_cron', 0);
-  switch ($cron) {
-    case 1:
-      $run = TRUE;
-      break;
+  $variables = apprise_mobile_api_get_variables();
 
-    case 2:
-      // Only run cron between 12:00 and 1:00 AM.
-      // This works only if cron runs hourly or
-      // within this time frame (recommended).
-      $run = !format_date(time(), 'custom', 'G');
-      break;
+  if (!$run = $variables['execute']) {
+    $cron = $variables['cron'];
+    switch ($cron) {
+      case 1:
+        $run = TRUE;
+        break;
 
-    default:
-      $run = FALSE;
+      case 2:
+        // Only run cron between 12:00 and 1:00 AM.
+        // This works only if cron runs hourly or
+        // within this time frame (recommended).
+        $run = !format_date(time(), 'custom', 'G');
+        break;
+
+      default:
+        $run = FALSE;
+    }
   }
+
   if ($run) {
     require_once(APPRISE_MOBILE_API_PATH . '/autoload.php');
 
-    // Limit of how many objects to fetch.
-    $limit = variable_get('apprise_mobile_api_limit', 10);
-
-    // How many objects to offset from 0.
-    $offset = variable_get('apprise_mobile_api_offset', 0);
-
-    // Get the error level.
-    $error_level = variable_get('error_level', 0);
-
     try {
+
       // Set the API key authorization code.
-      Swagger\Client\Configuration::getDefaultConfiguration()->setApiKey('code', variable_get('apprise_mobile_api_key', ''));
+      Swagger\Client\Configuration::getDefaultConfiguration()->setApiKey('code', $variables['key']);
 
       // Use an API key prefix, if needed.
-      if ($prefix = variable_get('apprise_mobile_api_prefix', '')) {
-        Swagger\Client\Configuration::getDefaultConfiguration()->setApiKeyPrefix('code', $prefix);
+      if ($variables['prefix']) {
+        Swagger\Client\Configuration::getDefaultConfiguration()->setApiKeyPrefix('code', $variables['prefix']);
       }
 
       // Create ContentApi instance.
       $api_instance = new Swagger\Client\Api\ContentApi();
 
-      // Post all articles that were added since yesterday.
-      // TODO: Add logic to post only relevant content.
-      $yesterday = strtotime('-1 day');
-      $rows = db_query("SELECT nid, title, FROM_UNIXTIME(created) AS added FROM {node} WHERE type = 'article' AND created >= :yesterday", array(':yesterday' => $yesterday));
-      foreach ($rows as $row) {
-        $url = url('node/' . $row->nid, array('absolute' => TRUE));
-        $result = $api_instance->contentsPost($row->nid, $row->title, $url, $row->added);
-        $response = print_r($result, TRUE);
-        if ($error_level) {
-          drupal_set_message($response);
+      // Retrieve all bundles.
+      $bundles = array();
+      foreach ($variables['types'] as $type => $value) {
+        if ($value) {
+          $bundles[] = $type;
         }
-        watchdog('apprise_mobile_api', 'Article :title posted: :response', array(':title' => $row->title, ':response' => $response));
+      }
+
+      // Post all relevent content that was added since yesterday.
+      $yesterday = strtotime('-1 day');
+      foreach ($bundles as $bundle) {
+        $rows = db_query("SELECT nid FROM {node} WHERE type = :bundle AND created >= :yesterday", array(
+          ':bundle' => $bundle,
+          ':yesterday' => $yesterday,
+        ));
+        foreach ($rows as $row) {
+          $node = node_load($row->nid);
+          if ($post = $node->field_apprise_mobile_api_post[LANGUAGE_NONE][0]['value']) {
+            $content = check_markup($node->body[LANGUAGE_NONE][0]['value'], $node->body[LANGUAGE_NONE][0]['format']);
+            // Base64 encode images.
+            preg_match_all('|<img.*src="(.*)".*>|', $content, $matches);
+            if (isset($matches[1])) {
+              foreach ($matches[1] as $path) {
+                $type = pathinfo($path, PATHINFO_EXTENSION);
+                $data = file_get_contents($path);
+                $base64 = 'data:image/' . $type . ';base64,' . base64_encode($data);
+                $content = str_replace($path, $base64, $content);
+              }
+              $file = variable_get('file_temporary_path', '/tmp') . '/' . time() . '.html';
+              if ($fp = fopen($file, 'w')) {
+                fwrite($fp, $content);
+                fclose($fp);
+              }
+            }
+            $publish_date = format_date($node->created, 'custom', 'Y-m-d H:i');
+            $web_url = url('node/' . $node->nid, array('absolute' => TRUE));
+            $share = '';
+            $post_date = '';
+            $unpost_date = '';
+            $notes_enabled = false;
+            $notify = true;
+            $secure = false;
+            $include_in_feed = true;
+            $display_thumbnail = true;
+            $content_folder = $node->field_apprise_mobile_api_folder[LANGUAGE_NONE][0]['value'];
+            $access_groups = array('');
+            $integration_id = '';
+            $integration_type = '';
+            $result = $api_instance->contentsPost(
+              $node->title,
+              $file,
+              $publish_date,
+              $web_url,
+              $share,
+              $post_date,
+              $unpost_date,
+              $notes_enabled,
+              $notify,
+              $secure,
+              $include_in_feed,
+              $display_thumbnail,
+              $content_folder,
+              $access_groups,
+              $integration_id,
+              $integration_type
+            );
+            $response = print_r($result, TRUE);
+            $message = t(':title of type :bundle posted: :response', array(
+              ':title' => $node->title,
+              ':bundle' => $bundle,
+              ':response' => $response,
+            ));
+            if (variable_get('error_level', 0)) {
+              drupal_set_message($message);
+            }
+            watchdog('apprise_mobile_api', $message);
+            // Remove temporary file.
+            unlink($file);
+          }
+        }
       }
     } catch (Exception $e) {
       $msg = 'Exception when calling ContentApi->contentsPost: ' . $e->getMessage();
-      if ($error_level) {
+      if (variable_get('error_level', 0)) {
         drupal_set_message($msg, 'error');
       }
       watchdog('apprise_mobile_api', $msg, array(), WATCHDOG_ERROR);
     }
   }
+}
+
+/**
+ * Generic Swagger Client API request wrapper function.
+ */
+function apprise_mobile_api_request($api = 'ContentfoldersApi', $method = 'contentFoldersGet') {
+  $response = array();
+  try {
+    $variables = apprise_mobile_api_get_variables();
+
+    // Set the API key authorization code.
+    Swagger\Client\Configuration::getDefaultConfiguration()->setApiKey('code', $variables['key']);
+
+    // Use an API key prefix, if needed.
+    if ($variables['prefix']) {
+      Swagger\Client\Configuration::getDefaultConfiguration()->setApiKeyPrefix('code', $variables['prefix']);
+    }
+
+    // Create API instance.
+    switch ($api) {
+      case 'ContentfoldersApi':
+        $api_instance = new Swagger\Client\Api\ContentfoldersApi();
+        break;
+
+      default:
+        $api_instance = new Swagger\Client\Api\ContentfoldersApi();
+    }
+
+    // Return result.
+    $response = $api_instance->$method($variables['limit'], $variables['offset']);
+  } catch (Exception $e) {
+    $msg = "Exception when calling $api->$method: " . $e->getMessage();
+    if (variable_get('error_level', 0)) {
+      drupal_set_message($msg, 'error');
+    }
+    watchdog('apprise_mobile_api', $msg, array(), WATCHDOG_ERROR);
+  }
+  return $response;
+}
+
+/**
+ * Get the available folders.
+ */
+function apprise_mobile_api_get_folders() {
+  $folders = array();
+
+  try {
+    // Build the request URL.
+    $variables = apprise_mobile_api_get_variables();
+    $base_url = $variables['base_url'];
+    $call = 'content-folders';
+    $params = array(
+      'limit' => $variables['limit'],
+      'offset' => $variables['offset'],
+      'code' => $variables['key'],
+    );
+    $url = $base_url . '/' . $call . '?' . http_build_query($params);
+
+    // Return results.
+    if ($results = json_decode(file_get_contents($url))) {
+      // Build folders array from results.
+      foreach ($results as $result) {
+        $folders[$result->_id] = $result->title;
+      }
+    }
+  } catch (Exception $e) {
+    $msg = "Exception when processing the folders request: " . $e->getMessage();
+    if (variable_get('error_level', 0)) {
+      drupal_set_message($msg, 'error');
+    }
+    watchdog('apprise_mobile_api', $msg, array(), WATCHDOG_ERROR);
+  }
+
+  return $folders;
+}
+
+/**
+ * Get variables.
+ */
+function apprise_mobile_api_get_variables() {
+  $host = variable_get('apprise_mobile_api_host', 'https://api.theemployeeapp.com');
+  $parsed_url = parse_url($host);
+  if (!empty($parsed_url['host']) and !defined('APPRISE_MOBILE_API_HOST')) {
+    define('APPRISE_MOBILE_API_HOST', $host);
+  }
+  $base_url = $host . '/v' . (int)APPRISE_MOBILE_API_VERSION;
+  if ($mode = variable_get('apprise_mobile_api_mode', 0)) {
+    $key = variable_get('apprise_mobile_api_prod_key', '');
+    $prefix = variable_get('apprise_mobile_api_prod_prefix', '');
+  }
+  else {
+    $key = variable_get('apprise_mobile_api_test_key', '');
+    $prefix = variable_get('apprise_mobile_api_test_prefix', '');
+  }
+  $types = variable_get('apprise_mobile_api_types', array());
+  $limit = variable_get('apprise_mobile_api_limit', 10);
+  $offset = variable_get('apprise_mobile_api_offset', 0);
+  $cron = variable_get('apprise_mobile_api_cron', 0);
+  $execute = variable_get('apprise_mobile_api_execute', 0);
+  return array(
+    'host' => $host,
+    'base_url' => $base_url,
+    'mode' => $mode,
+    'key' => $key,
+    'prefix' => $prefix,
+    'types' => $types,
+    'limit' => $limit,
+    'offset' => $offset,
+    'cron' => $cron,
+    'execute' => $execute,
+  );
 }
