@@ -91,7 +91,7 @@ function apprise_mobile_api_cron() {
         ));
         foreach ($rows as $row) {
           $node = node_load($row->nid);
-          if ($post = $node->field_apprise_mobile_api_post[LANGUAGE_NONE][0]['value']) {
+          if (isset($node->field_apprise_mobile_api_post[LANGUAGE_NONE][0]['value']) and $post = $node->field_apprise_mobile_api_post[LANGUAGE_NONE][0]['value']) {
             $content = check_markup($node->body[LANGUAGE_NONE][0]['value'], $node->body[LANGUAGE_NONE][0]['format']);
             // Base64 encode images.
             preg_match_all('|<img.*src="(.*)".*>|', $content, $matches);
