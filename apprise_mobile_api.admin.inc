@@ -163,7 +163,7 @@ function apprise_mobile_api_settings_form_submit($form, $form_state) {
   if (!empty($bundles)) {
     foreach ($fields as $label => $field) {
       // Check if our field is not already created.
-      if (!field_info_field($field)) {
+      if (!field_info_field($field['field_name'])) {
         // Create the field base.
         field_create_field($field);
       }
