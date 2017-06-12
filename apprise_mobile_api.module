@@ -169,8 +169,11 @@ function apprise_mobile_api_cron() {
  * Generic Swagger Client API request wrapper function.
  */
 function apprise_mobile_api_request($api = 'ContentfoldersApi', $method = 'contentFoldersGet') {
+  require_once(APPRISE_MOBILE_API_PATH . '/autoload.php');
   $response = array();
+
   try {
+
     $variables = apprise_mobile_api_get_variables();
 
     // Set the API key authorization code.
@@ -186,13 +189,20 @@ function apprise_mobile_api_request($api = 'ContentfoldersApi', $method = 'conte
       case 'ContentfoldersApi':
         $api_instance = new Swagger\Client\Api\ContentfoldersApi();
         break;
-
-      default:
-        $api_instance = new Swagger\Client\Api\ContentfoldersApi();
     }
 
-    // Return result.
-    $response = $api_instance->$method($variables['limit'], $variables['offset']);
+    // Execute method.
+    switch ($method) {
+      case 'contentFoldersGet':
+        // Return result.
+        if ($results = $api_instance->$method($variables['limit'], $variables['offset'])) {
+          // Build folders array from results.
+          foreach ($results as $result) {
+            $response[$result->getId()] = $result->getTitle();
+          }
+        }
+        break;
+    }
   } catch (Exception $e) {
     $msg = "Exception when calling $api->$method: " . $e->getMessage();
     if (variable_get('error_level', 0)) {

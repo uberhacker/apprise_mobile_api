@@ -54,18 +54,18 @@ class ContentFolder implements ArrayAccess
       * @var string[]
       */
     protected static $swaggerTypes = [
-        '_id' => '\Swagger\Client\Model\CalendarPropertiesId',
-        'owner' => '\Swagger\Client\Model\CalendarPropertiesId',
-        'account' => '\Swagger\Client\Model\CalendarPropertiesId',
+        '_id' => 'string',
+        'owner' => 'string',
+        'account' => 'string',
         'title' => 'string',
-        'created' => '\Swagger\Client\Model\CalendarPropertiesCreated',
-        'modified' => '\Swagger\Client\Model\CalendarPropertiesCreated',
-        'modified_by' => '\Swagger\Client\Model\CalendarPropertiesId',
-        'parent' => '\Swagger\Client\Model\CalendarPropertiesId',
-        'children' => '\Swagger\Client\Model\CalendarPropertiesId[]',
+        'created' => '\DateTime',
+        'modified' => '\DateTime',
+        'modified_by' => 'string',
+        'parent' => 'string',
+        'children' => 'string[]',
         'integration_id' => 'string',
         'integration_type' => 'string',
-        'permissions' => '\Swagger\Client\Model\CalendarPropertiesPermissions'
+        'permissions' => '\Swagger\Client\Model\CalendarPermissions[]'
     ];
 
     public static function swaggerTypes()
@@ -147,9 +147,6 @@ class ContentFolder implements ArrayAccess
         return self::$getters;
     }
 
-    
-
-    
 
     /**
      * Associative array for storing property values

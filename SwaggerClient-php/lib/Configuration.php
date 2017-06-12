@@ -89,7 +89,7 @@ class Configuration
      *
      * @var string
      */
-    protected $host = APPRISE_MOBILE_API_HOST;
+    protected $host = APPRISE_MOBILE_API_HOST . '/v2';
 
     /**
      * Timeout (second) of the HTTP request, by default set to 0, no timeout

@@ -145,7 +145,7 @@ function apprise_mobile_api_settings_form_submit($form, $form_state) {
       'field_name' => 'field_apprise_mobile_api_folder',
       'type' => 'list_text',
       'settings' => array(
-        'allowed_values' => apprise_mobile_api_get_folders(),
+        'allowed_values' => apprise_mobile_api_request(),
       ),
     ),
   );
