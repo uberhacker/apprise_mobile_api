@@ -53,45 +53,45 @@ class Content implements ArrayAccess
       * Array of property to type mappings. Used for (de)serialization
       * @var string[]
       */
-    protected static $swaggerTypes = [
-        '_id' => '\Swagger\Client\Model\CalendarPropertiesId',
-        'owner' => '\Swagger\Client\Model\CalendarPropertiesId',
-        'account' => '\Swagger\Client\Model\CalendarPropertiesId',
-        'title' => 'string',
-        'publish_date' => '\Swagger\Client\Model\CalendarPropertiesCreated',
-        'web_url' => 'string',
-        's3_key' => 'string',
-        'created' => '\Swagger\Client\Model\CalendarPropertiesCreated',
-        'modified' => '\Swagger\Client\Model\CalendarPropertiesCreated',
-        'modified_by' => '\Swagger\Client\Model\CalendarPropertiesId',
-        'share' => 'string',
-        'post_date' => '\Swagger\Client\Model\CalendarPropertiesCreated',
-        'unpost_date' => '\Swagger\Client\Model\CalendarPropertiesCreated',
-        'notes_enabled' => 'bool',
-        'notify' => 'bool',
-        'cacheable' => 'bool',
-        'content_type' => 'string',
-        'total_likes' => 'int',
-        'total_comments' => 'int',
-        'total_views' => 'int',
-        'secure' => 'bool',
-        'include_in_feed' => 'bool',
-        'access_groups' => '\Swagger\Client\Model\CalendarPropertiesId[]',
-        'content_folder' => '\Swagger\Client\Model\CalendarPropertiesId',
-        'integration_id' => 'string',
-        'integration_type' => 'string',
-        'permissions' => '\Swagger\Client\Model\CalendarPropertiesPermissions',
-        'hls_video_playlist_url' => '\Swagger\Client\Model\ContentPropertiesWebUrl',
-        'transcode_video_status' => 'string',
-        'thumbnail_s3_key' => 'string',
-        'small_thumbnail_url' => '\Swagger\Client\Model\ContentPropertiesWebUrl',
-        'medium_thumbnail_url' => '\Swagger\Client\Model\ContentPropertiesWebUrl',
-        'large_thumbnail_url' => '\Swagger\Client\Model\ContentPropertiesWebUrl',
-        'xlarge_thumbnail_url' => '\Swagger\Client\Model\ContentPropertiesWebUrl',
-        'thumbnail_job_id' => 'string',
-        'thumbnail_job_status' => '\Swagger\Client\Model\ContentPropertiesTranscodeVideoStatus',
-        'display_thumbnail' => 'bool'
-    ];
+      protected static $swaggerTypes = [
+          '_id' => 'string',
+          'owner' => 'string',
+          'account' => 'string',
+          'title' => 'string',
+          'publish_date' => '\DateTime',
+          'web_url' => 'string',
+          's3_key' => 'string',
+          'created' => '\DateTime',
+          'modified' => '\DateTime',
+          'modified_by' => 'string',
+          'share' => 'string',
+          'post_date' => '\DateTime',
+          'unpost_date' => '\DateTime',
+          'notes_enabled' => 'bool',
+          'notify' => 'bool',
+          'cacheable' => 'bool',
+          'content_type' => 'string',
+          'total_likes' => 'int',
+          'total_comments' => 'int',
+          'total_views' => 'int',
+          'secure' => 'bool',
+          'include_in_feed' => 'bool',
+          'access_groups' => 'string[]',
+          'content_folder' => 'string',
+          'integration_id' => 'string',
+          'integration_type' => 'string',
+          'permissions' => '\Swagger\Client\Model\CalendarPropertiesPermissions',
+          'hls_video_playlist_url' => '\Swagger\Client\Model\ContentPropertiesWebUrl',
+          'transcode_video_status' => 'string',
+          'thumbnail_s3_key' => 'string',
+          'small_thumbnail_url' => '\Swagger\Client\Model\ContentPropertiesWebUrl',
+          'medium_thumbnail_url' => '\Swagger\Client\Model\ContentPropertiesWebUrl',
+          'large_thumbnail_url' => '\Swagger\Client\Model\ContentPropertiesWebUrl',
+          'xlarge_thumbnail_url' => '\Swagger\Client\Model\ContentPropertiesWebUrl',
+          'thumbnail_job_id' => 'string',
+          'thumbnail_job_status' => 'string',
+          'display_thumbnail' => 'bool'
+      ];
 
     public static function swaggerTypes()
     {
@@ -261,9 +261,9 @@ class Content implements ArrayAccess
     const TRANSCODE_VIDEO_STATUS_COMPLETED = 'COMPLETED';
     const TRANSCODE_VIDEO_STATUS_FAILED = 'FAILED';
     const TRANSCODE_VIDEO_STATUS_NONE = 'NONE';
-    
 
-    
+
+
     /**
      * Gets allowable values of the enum
      * @return string[]
@@ -276,7 +276,7 @@ class Content implements ArrayAccess
             self::SHARE_DISABLED,
         ];
     }
-    
+
     /**
      * Gets allowable values of the enum
      * @return string[]
@@ -292,7 +292,7 @@ class Content implements ArrayAccess
             self::CONTENT_TYPE_RICH_TEXT,
         ];
     }
-    
+
     /**
      * Gets allowable values of the enum
      * @return string[]
@@ -307,7 +307,7 @@ class Content implements ArrayAccess
             self::TRANSCODE_VIDEO_STATUS_NONE,
         ];
     }
-    
+
 
     /**
      * Associative array for storing property values
@@ -586,7 +586,7 @@ class Content implements ArrayAccess
     public function setWebUrl($web_url)
     {
 
-        if (!is_null($web_url) && (!preg_match("/(http|ftp|https)://[\\w-]+(\\.[\\w-]+)+([\\w.,@?^=%&amp;:/~+#-]*[\\w@?^=%&amp;/~+#-])?/", $web_url))) {
+        if (!is_null($web_url) && (!preg_match("/(http|ftp|https):\/\/[\\w-]+(\\.[\\w-]+)+([\\w.,@?^=%&amp;:\/~+#-]*[\\w@?^=%&amp;\/~+#-])?/", $web_url))) {
             throw new \InvalidArgumentException("invalid value for $web_url when calling Content., must conform to the pattern /(http|ftp|https)://[\\w-]+(\\.[\\w-]+)+([\\w.,@?^=%&amp;:/~+#-]*[\\w@?^=%&amp;/~+#-])?/.");
         }
 
@@ -1330,5 +1330,3 @@ class Content implements ArrayAccess
         return json_encode(\Swagger\Client\ObjectSerializer::sanitizeForSerialization($this));
     }
 }
-
-
