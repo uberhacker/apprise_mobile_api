@@ -110,18 +110,18 @@ function apprise_mobile_api_cron() {
             }
             $publish_date = format_date($node->created, 'custom', 'Y-m-d H:i');
             $web_url = url('node/' . $node->nid, array('absolute' => TRUE));
-            $share = '';
-            $post_date = '';
-            $unpost_date = '';
-            $notes_enabled = false;
-            $notify = true;
-            $secure = false;
-            $include_in_feed = true;
-            $display_thumbnail = true;
+            $share = 'SHARE_DISABLED';
+            $post_date = NULL;
+            $unpost_date = NULL;
+            $notes_enabled = FALSE;
+            $notify = TRUE;
+            $secure = FALSE;
+            $include_in_feed = TRUE;
+            $display_thumbnail = TRUE;
             $content_folder = $node->field_apprise_mobile_api_folder[LANGUAGE_NONE][0]['value'];
-            $access_groups = array('');
-            $integration_id = '';
-            $integration_type = '';
+            $access_groups = NULL;
+            $integration_id = NULL;
+            $integration_type = NULL;
             $result = $api_instance->contentsPost(
               $node->title,
               $file,
