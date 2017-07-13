@@ -109,7 +109,7 @@ function apprise_mobile_api_cron() {
               }
             }
             $publish_date = format_date($node->created, 'custom', 'Y-m-d H:i');
-            $web_url = url('node/' . $node->nid, array('absolute' => TRUE));
+            $web_url = NULL;
             $share = 'SHARE_DISABLED';
             $post_date = NULL;
             $unpost_date = NULL;
