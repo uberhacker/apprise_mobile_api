@@ -59,21 +59,7 @@ function apprise_mobile_api_cron() {
   }
 
   if ($run) {
-    require_once(APPRISE_MOBILE_API_PATH . '/autoload.php');
-
     try {
-
-      // Set the API key authorization code.
-      Swagger\Client\Configuration::getDefaultConfiguration()->setApiKey('code', $variables['key']);
-
-      // Use an API key prefix, if needed.
-      if ($variables['prefix']) {
-        Swagger\Client\Configuration::getDefaultConfiguration()->setApiKeyPrefix('code', $variables['prefix']);
-      }
-
-      // Create ContentApi instance.
-      $api_instance = new Swagger\Client\Api\ContentApi();
-
       // Retrieve all bundles.
       $bundles = array();
       foreach ($variables['types'] as $type => $value) {
@@ -94,7 +80,7 @@ function apprise_mobile_api_cron() {
           if (isset($node->field_apprise_mobile_api_post[LANGUAGE_NONE][0]['value']) and $post = $node->field_apprise_mobile_api_post[LANGUAGE_NONE][0]['value']) {
             $content = check_markup($node->body[LANGUAGE_NONE][0]['value'], $node->body[LANGUAGE_NONE][0]['format']);
             // Base64 encode images.
-            preg_match_all('|<img.*src="(.*)".*>|', $content, $matches);
+            preg_match_all('|<img.*src="(.*)".*>|U', $content, $matches);
             if (isset($matches[1])) {
               foreach ($matches[1] as $path) {
                 $type = pathinfo($path, PATHINFO_EXTENSION);
@@ -108,39 +94,39 @@ function apprise_mobile_api_cron() {
                 fclose($fp);
               }
             }
-            $publish_date = format_date($node->created, 'custom', 'Y-m-d H:i');
+            $publish_date = format_date($node->created, 'custom', 'Y-m-d');
             $web_url = NULL;
-            $share = 'SHARE_DISABLED';
+            $share = 0;
             $post_date = NULL;
             $unpost_date = NULL;
-            $notes_enabled = FALSE;
-            $notify = TRUE;
-            $secure = FALSE;
-            $include_in_feed = TRUE;
-            $display_thumbnail = TRUE;
+            $notes_enabled = 0;
+            $notify = 1;
+            $secure = 0;
+            $include_in_feed = 1;
+            $display_thumbnail = 1;
             $content_folder = $node->field_apprise_mobile_api_folder[LANGUAGE_NONE][0]['value'];
-            $access_groups = NULL;
+            $access_groups = $node->field_apprise_mobile_api_group[LANGUAGE_NONE][0]['value'];
             $integration_id = NULL;
             $integration_type = NULL;
-            $result = $api_instance->contentsPost(
-              $node->title,
-              $file,
-              $publish_date,
-              $web_url,
-              $share,
-              $post_date,
-              $unpost_date,
-              $notes_enabled,
-              $notify,
-              $secure,
-              $include_in_feed,
-              $display_thumbnail,
-              $content_folder,
-              $access_groups,
-              $integration_id,
-              $integration_type
+            $values = array(
+              'title' => $node->title,
+              'file' => $file,
+              'publishDate' => $publish_date,
+              'webUrl' => $web_url,
+              'share' => $share,
+              'postDate' => $post_date,
+              'unpostDate' => $unpost_date,
+              'notesEnabled' => $notes_enabled,
+              'notify' => $notify,
+              'secure' => $secure,
+              'includeInFeed' => $include_in_feed,
+              'displayThumbnail' => $display_thumbnail,
+              'contentFolder' => $content_folder,
+              'accessGroups' => $access_groups,
+              'integrationId' => $integration_id,
+              'integrationType' => $integration_type,
             );
-            $response = print_r($result, TRUE);
+            $response = apprise_mobile_api_post('content', $values);
             $message = t(':title of type :bundle posted: :response', array(
               ':title' => $node->title,
               ':bundle' => $bundle,
@@ -156,7 +142,7 @@ function apprise_mobile_api_cron() {
         }
       }
     } catch (Exception $e) {
-      $msg = 'Exception when calling ContentApi->contentsPost: ' . $e->getMessage();
+      $msg = 'Exception when calling apprise_mobile_api_post: ' . $e->getMessage();
       if (variable_get('error_level', 0)) {
         drupal_set_message($msg, 'error');
       }
@@ -166,64 +152,15 @@ function apprise_mobile_api_cron() {
 }
 
 /**
- * Generic Swagger Client API request wrapper function.
+ * Get content via an API request.
  */
-function apprise_mobile_api_request($api = 'ContentfoldersApi', $method = 'contentFoldersGet') {
-  require_once(APPRISE_MOBILE_API_PATH . '/autoload.php');
-  $response = array();
-
-  try {
-
-    $variables = apprise_mobile_api_get_variables();
-
-    // Set the API key authorization code.
-    Swagger\Client\Configuration::getDefaultConfiguration()->setApiKey('code', $variables['key']);
-
-    // Use an API key prefix, if needed.
-    if ($variables['prefix']) {
-      Swagger\Client\Configuration::getDefaultConfiguration()->setApiKeyPrefix('code', $variables['prefix']);
-    }
-
-    // Create API instance.
-    switch ($api) {
-      case 'ContentfoldersApi':
-        $api_instance = new Swagger\Client\Api\ContentfoldersApi();
-        break;
-    }
-
-    // Execute method.
-    switch ($method) {
-      case 'contentFoldersGet':
-        // Return result.
-        if ($results = $api_instance->$method($variables['limit'], $variables['offset'])) {
-          // Build folders array from results.
-          foreach ($results as $result) {
-            $response[$result->getId()] = $result->getTitle();
-          }
-        }
-        break;
-    }
-  } catch (Exception $e) {
-    $msg = "Exception when calling $api->$method: " . $e->getMessage();
-    if (variable_get('error_level', 0)) {
-      drupal_set_message($msg, 'error');
-    }
-    watchdog('apprise_mobile_api', $msg, array(), WATCHDOG_ERROR);
-  }
-  return $response;
-}
-
-/**
- * Get the available folders.
- */
-function apprise_mobile_api_get_folders() {
-  $folders = array();
+function apprise_mobile_api_get($call = 'content') {
+  $content = array();
 
   try {
     // Build the request URL.
     $variables = apprise_mobile_api_get_variables();
     $base_url = $variables['base_url'];
-    $call = 'content-folders';
     $params = array(
       'limit' => $variables['limit'],
       'offset' => $variables['offset'],
@@ -233,20 +170,66 @@ function apprise_mobile_api_get_folders() {
 
     // Return results.
     if ($results = json_decode(file_get_contents($url))) {
-      // Build folders array from results.
+      // Build array from results.
       foreach ($results as $result) {
-        $folders[$result->_id] = $result->title;
+        $content[$result->_id] = isset($result->title) ? $result->title : $result->name;
       }
     }
   } catch (Exception $e) {
-    $msg = "Exception when processing the folders request: " . $e->getMessage();
+    $msg = 'Exception when processing the request: ' . $e->getMessage();
     if (variable_get('error_level', 0)) {
       drupal_set_message($msg, 'error');
     }
     watchdog('apprise_mobile_api', $msg, array(), WATCHDOG_ERROR);
   }
 
-  return $folders;
+  return $content;
+}
+
+/**
+ * Post content via an API request.
+ */
+function apprise_mobile_api_post($call = 'content', $values = array()) {
+  $msg = '';
+  try {
+    // Build the request URL.
+    $variables = apprise_mobile_api_get_variables();
+    $base_url = $variables['base_url'];
+    $code = $variables['key'];
+    $url = $base_url . '/' . $call . '?code=' . $code;
+    $headers = array('Content-Type:multipart/form-data');
+    $fields = http_build_query($values);
+
+    // Post results.
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_POST, 1);
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $values);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
+    $response = curl_exec($ch);
+    curl_close($ch);
+    $msg = 'Request: ' . $url . '&' . $fields . '<br />Response: ' . print_r($response, TRUE);
+    if ($response == 'OK') {
+      if (variable_get('error_level', 0)) {
+        drupal_set_message($msg);
+      }
+      watchdog('apprise_mobile_api', $msg);
+    }
+    else {
+      if (variable_get('error_level', 0)) {
+        drupal_set_message($msg, 'error');
+      }
+      watchdog('apprise_mobile_api', $msg, array(), WATCHDOG_ERROR);
+    }
+  } catch (Exception $e) {
+    $msg = 'Exception when processing the request: ' . $e->getMessage();
+    if (variable_get('error_level', 0)) {
+      drupal_set_message($msg, 'error');
+    }
+    watchdog('apprise_mobile_api', $msg, array(), WATCHDOG_ERROR);
+  }
+  return $msg;
 }
 
 /**

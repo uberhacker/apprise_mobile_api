@@ -84,7 +84,7 @@ function apprise_mobile_api_admin_settings() {
     '#description' => t('Check which content types should include the API fields.'),
     '#options' => $content_types,
     '#default_value' => variable_get('apprise_mobile_api_types', array()),
-    '#required' => TRUE,
+    '#required' => FALSE,
   );
   $form['apprise_mobile_api_settings']['apprise_mobile_api_limit'] = array(
     '#type' => 'textfield',
@@ -145,7 +145,14 @@ function apprise_mobile_api_settings_form_submit($form, $form_state) {
       'field_name' => 'field_apprise_mobile_api_folder',
       'type' => 'list_text',
       'settings' => array(
-        'allowed_values' => apprise_mobile_api_request(),
+        'allowed_values' => apprise_mobile_api_get('content-folders'),
+      ),
+    ),
+    'Access group' => array(
+      'field_name' => 'field_apprise_mobile_api_group',
+      'type' => 'list_text',
+      'settings' => array(
+        'allowed_values' => apprise_mobile_api_get('groups'),
       ),
     ),
   );
@@ -185,6 +192,10 @@ function apprise_mobile_api_settings_form_submit($form, $form_state) {
           );
           if ($field['type'] == 'list_boolean') {
             $instance['widget']['type'] = 'options_onoff';
+          }
+          if ($field['type'] == 'list_text') {
+            $instance['widget']['type'] = 'options_select';
+            $instance['required'] = TRUE;
           }
           $instance['widget']['settings']['display_label'] = 1;
           field_create_instance($instance);
