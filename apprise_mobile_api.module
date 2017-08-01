@@ -15,6 +15,13 @@ define('APPRISE_MOBILE_API_VERSION', '2.0.0');
 // Set the path to the API.
 define('APPRISE_MOBILE_API_PATH', drupal_get_path('module', 'apprise_mobile_api') . '/SwaggerClient-php');
 
+// For PHP < 5.5.  See http://php.net/manual/en/function.curl-file-create.php.
+if (!function_exists('curl_file_create')) {
+  function curl_file_create($filename, $mimetype = '', $postname = '') {
+    return "@$filename;filename=" . ($postname ?: basename($filename)) . ($mimetype ? ";type=$mimetype" : '');
+  }
+}
+
 /**
  * Implements hook_menu().
  */
@@ -78,7 +85,13 @@ function apprise_mobile_api_cron() {
         foreach ($rows as $row) {
           $node = node_load($row->nid);
           if (isset($node->field_apprise_mobile_api_post[LANGUAGE_NONE][0]['value']) and $post = $node->field_apprise_mobile_api_post[LANGUAGE_NONE][0]['value']) {
+            // Generate a curl compatible file.
+            $filename = variable_get('file_temporary_path', '/tmp') . '/' . time() . '.html';
+            $file = curl_file_create($filename, 'text/html');
+
+            // Retrieve the content.
             $content = check_markup($node->body[LANGUAGE_NONE][0]['value'], $node->body[LANGUAGE_NONE][0]['format']);
+
             // Base64 encode images.
             preg_match_all('|<img.*src="(.*)".*>|U', $content, $matches);
             if (isset($matches[1])) {
@@ -88,12 +101,15 @@ function apprise_mobile_api_cron() {
                 $base64 = 'data:image/' . $type . ';base64,' . base64_encode($data);
                 $content = str_replace($path, $base64, $content);
               }
-              $file = variable_get('file_temporary_path', '/tmp') . '/' . time() . '.html';
-              if ($fp = fopen($file, 'w')) {
-                fwrite($fp, $content);
-                fclose($fp);
-              }
             }
+
+            // Write the content to file.
+            if ($fp = fopen($filename, 'w')) {
+              fwrite($fp, $content);
+              fclose($fp);
+            }
+
+            // Generate values to pass to the API.
             $publish_date = format_date($node->created, 'custom', 'Y-m-d');
             $web_url = NULL;
             $share = 0;
@@ -126,18 +142,25 @@ function apprise_mobile_api_cron() {
               'integrationId' => $integration_id,
               'integrationType' => $integration_type,
             );
+
+            // Post the request.
             $response = apprise_mobile_api_post('content', $values);
+
+            // Format the response.
             $message = t(':title of type :bundle posted: :response', array(
               ':title' => $node->title,
               ':bundle' => $bundle,
               ':response' => $response,
             ));
+
+            // Log the response message.
             if (variable_get('error_level', 0)) {
               drupal_set_message($message);
             }
             watchdog('apprise_mobile_api', $message);
+
             // Remove temporary file.
-            unlink($file);
+            unlink($filename);
           }
         }
       }
@@ -168,7 +191,7 @@ function apprise_mobile_api_get($call = 'content') {
     );
     $url = $base_url . '/' . $call . '?' . http_build_query($params);
 
-    // Return results.
+    // Send the request.
     if ($results = json_decode(file_get_contents($url))) {
       // Build array from results.
       foreach ($results as $result) {
@@ -200,7 +223,7 @@ function apprise_mobile_api_post($call = 'content', $values = array()) {
     $headers = array('Content-Type:multipart/form-data');
     $fields = http_build_query($values);
 
-    // Post results.
+    // Post the request.
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_POST, 1);
     curl_setopt($ch, CURLOPT_URL, $url);
@@ -209,6 +232,8 @@ function apprise_mobile_api_post($call = 'content', $values = array()) {
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
     $response = curl_exec($ch);
     curl_close($ch);
+
+    // Log the response message.
     $msg = 'Request: ' . $url . '&' . $fields . '<br />Response: ' . print_r($response, TRUE);
     if ($response == 'OK') {
       if (variable_get('error_level', 0)) {
