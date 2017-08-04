@@ -114,14 +114,13 @@ function apprise_mobile_api_cron() {
 
             // Generate values to pass to the API.
             $date_format = 'Y-m-d\TH:i:s';
-            $timezone = drupal_get_user_timezone();
-            $publish_date = format_date($node->created, 'custom', $date_format, $timezone);
+            $publish_date = format_date($node->created, 'custom', $date_format, 'UTC');
             $web_url = NULL;
             $share = $node->field_apprise_mobile_api_share[LANGUAGE_NONE][0]['value'];
             $default_timezone = date_default_timezone_get();
             date_default_timezone_set('UTC');
-            $post_date = format_date(strtotime($node->field_apprise_mobile_api_post[LANGUAGE_NONE][0]['value']), 'custom', $date_format, $timezone);
-            $unpost_date = format_date(strtotime($node->field_apprise_mobile_api_unpost[LANGUAGE_NONE][0]['value']), 'custom', $date_format, $timezone);
+            $post_date = format_date(strtotime($node->field_apprise_mobile_api_post[LANGUAGE_NONE][0]['value']), 'custom', $date_format);
+            $unpost_date = format_date(strtotime($node->field_apprise_mobile_api_unpost[LANGUAGE_NONE][0]['value']), 'custom', $date_format);
             date_default_timezone_set($default_timezone);
             $notes_enabled = 'false';
             $notify = 'true';
