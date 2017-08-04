@@ -91,12 +91,21 @@ function apprise_mobile_api_admin_settings() {
     '#title' => t('Limit'),
     '#default_value' => variable_get('apprise_mobile_api_limit', 10),
     '#description' => t('Limit of how many items to fetch.'),
+    '#size' => 5,
   );
   $form['apprise_mobile_api_settings']['apprise_mobile_api_offset'] = array(
     '#type' => 'textfield',
     '#title' => t('Offset'),
     '#default_value' => variable_get('apprise_mobile_api_offset', 0),
     '#description' => t('How many items to offset from 0.'),
+    '#size' => 5,
+  );
+  $form['apprise_mobile_api_settings']['apprise_mobile_api_days'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Days'),
+    '#default_value' => variable_get('apprise_mobile_api_days', 1),
+    '#description' => t('How many days back to check for published content.<br />(1 means yesterday, 7 means a week ago, etc.)'),
+    '#size' => 5,
   );
   $form['apprise_mobile_api_settings']['apprise_mobile_api_cron'] = array(
     '#type' => 'select',
@@ -113,6 +122,11 @@ function apprise_mobile_api_admin_settings() {
     '#type' => 'checkbox',
     '#title' => t('Post immediately after the :save button is pressed.', array (':save' => 'Save configuration')),
     '#default_value' => variable_get('apprise_mobile_api_execute', 0),
+  );
+  $form['apprise_mobile_api_settings']['apprise_mobile_api_debug'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Enable debugging.'),
+    '#default_value' => variable_get('apprise_mobile_api_debug', 0),
   );
   $form['apprise_mobile_api_settings']['apprise_mobile_api_previous_types'] = array(
     '#type' => 'hidden',
@@ -131,8 +145,8 @@ function apprise_mobile_api_settings_form_submit($form, $form_state) {
 
   // Field definitions.
   $fields = array(
-    'Post to API' => array(
-      'field_name' => 'field_apprise_mobile_api_post',
+    'Send to APPrise' => array(
+      'field_name' => 'field_apprise_mobile_api_send',
       'type' => 'list_boolean',
       'settings' => array(
         'allowed_values' => array(
@@ -153,6 +167,39 @@ function apprise_mobile_api_settings_form_submit($form, $form_state) {
       'type' => 'list_text',
       'settings' => array(
         'allowed_values' => apprise_mobile_api_get('groups'),
+      ),
+    ),
+    'Share' => array(
+      'field_name' => 'field_apprise_mobile_api_share',
+      'type' => 'list_text',
+      'settings' => array(
+        'allowed_values' => array(
+          'SHARE_DISABLED' => 'Disabled',
+          'SHARE_ENABLED' => 'Enabled',
+          'SHARE_EMAIL_ONLY' => 'Email Only',
+        ),
+      ),
+    ),
+    'Post date' => array(
+      'field_name' => 'field_apprise_mobile_api_post',
+      'type' => 'datetime',
+      'settings' => array(
+        'granularity' => array('year', 'month', 'day', 'hour', 'minute'),
+        'tz_handling' => 'site',
+        'timezone_db' => date_default_timezone(),
+        'repeat' => 0,
+        'todate' => FALSE,
+      ),
+    ),
+    'Unpost date' => array(
+      'field_name' => 'field_apprise_mobile_api_unpost',
+      'type' => 'datetime',
+      'settings' => array(
+        'granularity' => array('year', 'month', 'day', 'hour', 'minute'),
+        'tz_handling' => 'site',
+        'timezone_db' => date_default_timezone(),
+        'repeat' => 0,
+        'todate' => FALSE,
       ),
     ),
   );
@@ -190,6 +237,8 @@ function apprise_mobile_api_settings_form_submit($form, $form_state) {
               'type' => $field['type'],
             ),
           );
+          $instance['display']['default']['type'] = 'hidden';
+          $instance['display']['teaser']['type'] = 'hidden';
           if ($field['type'] == 'list_boolean') {
             $instance['widget']['type'] = 'options_onoff';
           }
@@ -197,7 +246,19 @@ function apprise_mobile_api_settings_form_submit($form, $form_state) {
             $instance['widget']['type'] = 'options_select';
             $instance['required'] = TRUE;
           }
+          if ($field['type'] == 'datetime') {
+            $instance['widget']['type'] = 'date_popup';
+          }
           $instance['widget']['settings']['display_label'] = 1;
+          if ($instance['label'] == 'Share') {
+            $instance['default_value'] = array(array('value' => 'SHARE_DISABLED'));
+          }
+          if ($instance['label'] == 'Post date') {
+            $instance['default_value'] = array(array('value' => strtotime('now')));
+          }
+          if ($instance['label'] == 'Unpost date') {
+            $instance['default_value'] = array(array('value' => strtotime('+30 day')));
+          }
           field_create_instance($instance);
         }
       }
