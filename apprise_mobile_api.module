@@ -183,7 +183,7 @@ function apprise_mobile_api_get($call = 'contents') {
       'offset' => $variables['offset'],
       'code' => $variables['key'],
     );
-    $url = $base_url . '/' . $call . '?' . http_build_query($params);
+    $url = '"' . $base_url . '/' . $call . '?' . http_build_query($params) . '"';
 
     // Send the request.
     $ch = curl_init();
@@ -238,7 +238,6 @@ function apprise_mobile_api_post($call = 'contents', $values = array()) {
     $code = $variables['key'];
     $url = $base_url . '/' . $call . '?code=' . $code;
     $headers = array('content-type: multipart/form-data');
-    $fields = http_build_query($values);
 
     // Post the request.
     $msg = '';
