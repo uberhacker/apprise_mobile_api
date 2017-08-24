@@ -183,7 +183,7 @@ function apprise_mobile_api_get($call = 'contents') {
       'offset' => $variables['offset'],
       'code' => $variables['key'],
     );
-    $url = '"' . $base_url . '/' . $call . '?' . http_build_query($params) . '"';
+    $url = $base_url . '/' . $call . '?' . http_build_query($params);
 
     // Send the request.
     $ch = curl_init();
