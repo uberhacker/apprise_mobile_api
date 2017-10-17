@@ -120,7 +120,7 @@ function apprise_mobile_api_admin_settings() {
   );
   $form['apprise_mobile_api_settings']['apprise_mobile_api_execute'] = array(
     '#type' => 'checkbox',
-    '#title' => t('Post immediately after the :save button is pressed.', array (':save' => 'Save configuration')),
+    '#title' => t('Push immediately after the :save button is pressed.', array(':save' => 'Save configuration')),
     '#default_value' => variable_get('apprise_mobile_api_execute', 0),
   );
   $form['apprise_mobile_api_settings']['apprise_mobile_api_debug'] = array(
@@ -147,6 +147,16 @@ function apprise_mobile_api_settings_form_submit($form, $form_state) {
   $fields = array(
     'Send to APPrise' => array(
       'field_name' => 'field_apprise_mobile_api_send',
+      'type' => 'list_boolean',
+      'settings' => array(
+        'allowed_values' => array(
+          0 => '',
+          1 => '',
+        ),
+      ),
+    ),
+    'Push immediately' => array(
+      'field_name' => 'field_apprise_mobile_api_push',
       'type' => 'list_boolean',
       'settings' => array(
         'allowed_values' => array(
@@ -252,12 +262,6 @@ function apprise_mobile_api_settings_form_submit($form, $form_state) {
           $instance['widget']['settings']['display_label'] = 1;
           if ($instance['label'] == 'Share') {
             $instance['default_value'] = array(array('value' => 'SHARE_DISABLED'));
-          }
-          if ($instance['label'] == 'Post date') {
-            $instance['default_value'] = array(array('value' => strtotime('now')));
-          }
-          if ($instance['label'] == 'Unpost date') {
-            $instance['default_value'] = array(array('value' => strtotime('+30 day')));
           }
           field_create_instance($instance);
         }

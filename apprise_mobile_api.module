@@ -17,6 +17,9 @@ define('APPRISE_MOBILE_API_PATH', drupal_get_path('module', 'apprise_mobile_api'
 
 // For PHP < 5.5.  See http://php.net/manual/en/function.curl-file-create.php.
 if (!function_exists('curl_file_create')) {
+  /**
+   * Define function curl_file_create().
+   */
   function curl_file_create($filename, $mimetype = '', $postname = '') {
     return "@$filename;filename=" . ($postname ?: basename($filename)) . ($mimetype ? ";type=$mimetype" : '');
   }
@@ -85,80 +88,11 @@ function apprise_mobile_api_cron() {
           ':time' => $time,
         ));
         foreach ($rows as $row) {
-          $node = node_load($row->nid);
-          // Only send if checked.
-          if (!empty($node->field_apprise_mobile_api_send[LANGUAGE_NONE][0]['value'])) {
-            // Retrieve the content.
-            $content = check_markup($node->body[LANGUAGE_NONE][0]['value'], $node->body[LANGUAGE_NONE][0]['format']);
-
-            // Generate a curl compatible file.
-            $filename = variable_get('file_temporary_path', '/tmp') . '/' . time() . '.html';
-            $file = curl_file_create($filename, 'text/html');
-
-            // Base64 encode images.
-            preg_match_all('|<img.*src="(.*)".*>|U', $content, $matches);
-            if (isset($matches[1])) {
-              foreach ($matches[1] as $path) {
-                $type = pathinfo($path, PATHINFO_EXTENSION);
-                $data = file_get_contents($path);
-                $base64 = 'data:image/' . $type . ';base64,' . base64_encode($data);
-                $content = str_replace($path, $base64, $content);
-              }
-            }
-
-            // Write the content to file.
-            if ($fp = fopen($filename, 'w')) {
-              fwrite($fp, $content);
-              fclose($fp);
-            }
-
-            // Generate values to pass to the API.
-            $date_format = 'Y-m-d\TH:i:s';
-            $publish_date = format_date($node->created, 'custom', $date_format, 'UTC');
-            $web_url = NULL;
-            $share = $node->field_apprise_mobile_api_share[LANGUAGE_NONE][0]['value'];
-            $default_timezone = date_default_timezone_get();
-            date_default_timezone_set('UTC');
-            $post_date = format_date(strtotime($node->field_apprise_mobile_api_post[LANGUAGE_NONE][0]['value']), 'custom', $date_format);
-            $unpost_date = format_date(strtotime($node->field_apprise_mobile_api_unpost[LANGUAGE_NONE][0]['value']), 'custom', $date_format);
-            date_default_timezone_set($default_timezone);
-            $notes_enabled = 'false';
-            $notify = 'true';
-            $secure = 'false';
-            $include_in_feed = 'true';
-            $display_thumbnail = 'true';
-            $content_folder = $node->field_apprise_mobile_api_folder[LANGUAGE_NONE][0]['value'];
-            $access_groups = $node->field_apprise_mobile_api_group[LANGUAGE_NONE][0]['value'];
-            $integration_id = NULL;
-            $integration_type = NULL;
-            $values = array(
-              'title' => $node->title,
-              'file' => $file,
-              'publishDate' => $publish_date,
-              'webUrl' => $web_url,
-              'share' => $share,
-              'postDate' => $post_date,
-              'unpostDate' => $unpost_date,
-              'notesEnabled' => $notes_enabled,
-              'notify' => $notify,
-              'secure' => $secure,
-              'includeInFeed' => $include_in_feed,
-              'displayThumbnail' => $display_thumbnail,
-              'contentFolder' => $content_folder,
-              'accessGroups' => $access_groups,
-              'integrationId' => $integration_id,
-              'integrationType' => $integration_type,
-            );
-
-            // Post the request.
-            apprise_mobile_api_post('contents', $values);
-
-            // Remove temporary file.
-            unlink($filename);
-          }
+          apprise_mobile_api_push($row->nid);
         }
       }
-    } catch (Exception $e) {
+    }
+    catch (Exception $e) {
       $msg = 'Exception when calling apprise_mobile_api_post: ' . $e->getMessage();
       if (variable_get('error_level', 0)) {
         drupal_set_message($msg, 'error');
@@ -216,7 +150,8 @@ function apprise_mobile_api_get($call = 'contents') {
       }
       watchdog('apprise_mobile_api', $msg);
     }
-  } catch (Exception $e) {
+  }
+  catch (Exception $e) {
     $msg = 'Exception when processing the request: ' . $e->getMessage();
     if (variable_get('error_level', 0)) {
       drupal_set_message($msg, 'error');
@@ -290,12 +225,98 @@ function apprise_mobile_api_post($call = 'contents', $values = array()) {
       }
       watchdog('apprise_mobile_api', $msg);
     }
-  } catch (Exception $e) {
+  }
+  catch (Exception $e) {
     $msg = 'Exception when processing the request: ' . $e->getMessage();
     if (variable_get('error_level', 0)) {
       drupal_set_message($msg, 'error');
     }
     watchdog('apprise_mobile_api', $msg, array(), WATCHDOG_ERROR);
+  }
+}
+
+/**
+ * Push content to APPrise.
+ */
+function apprise_mobile_api_push($nid = 0) {
+  $node = node_load($nid);
+  // Only send if checked.
+  if (!empty($node->field_apprise_mobile_api_send[LANGUAGE_NONE][0]['value'])) {
+    // Retrieve the content.
+    $content = isset($node->body[LANGUAGE_NONE][0]['value']) ? check_markup($node->body[LANGUAGE_NONE][0]['value'], $node->body[LANGUAGE_NONE][0]['format']) : '';
+    if ($content) {
+      // Generate a curl compatible file.
+      $filename = variable_get('file_temporary_path', '/tmp') . '/' . time() . '.html';
+      $file = curl_file_create($filename, 'text/html');
+
+      // Base64 encode images.
+      preg_match_all('|<img.*src="(.*)".*>|U', $content, $matches);
+      if (isset($matches[1])) {
+        foreach ($matches[1] as $path) {
+          $url = url($path, array('absolute' => TRUE));
+          $type = pathinfo($path, PATHINFO_EXTENSION);
+          $data = file_get_contents($url);
+          $base64 = 'data:image/' . $type . ';base64,' . base64_encode($data);
+          $content = str_replace($path, $base64, $content);
+        }
+      }
+
+      // Write the content to file.
+      if ($fp = fopen($filename, 'w')) {
+        fwrite($fp, $content);
+        fclose($fp);
+      }
+
+      // Generate values to pass to APPrise.
+      $date_format = 'Y-m-d\TH:i:s';
+      $publish_date = format_date($node->created, 'custom', $date_format, 'UTC');
+      $web_url = NULL;
+      $share = $node->field_apprise_mobile_api_share[LANGUAGE_NONE][0]['value'];
+      $timezone = date_default_timezone_get();
+      date_default_timezone_set('UTC');
+      $post_date = NULL;
+      $unpost_date = NULL;
+      if (isset($node->field_apprise_mobile_api_post[LANGUAGE_NONE][0]['value'])) {
+        $post_date = format_date(strtotime($node->field_apprise_mobile_api_post[LANGUAGE_NONE][0]['value']), 'custom', $date_format);
+      }
+      if (isset($node->field_apprise_mobile_api_unpost[LANGUAGE_NONE][0]['value'])) {
+        $unpost_date = format_date(strtotime($node->field_apprise_mobile_api_unpost[LANGUAGE_NONE][0]['value']), 'custom', $date_format);
+      }
+      date_default_timezone_set($timezone);
+      $notes_enabled = 'false';
+      $notify = 'true';
+      $secure = 'false';
+      $include_in_feed = 'true';
+      $display_thumbnail = 'true';
+      $content_folder = $node->field_apprise_mobile_api_folder[LANGUAGE_NONE][0]['value'];
+      $access_groups = $node->field_apprise_mobile_api_group[LANGUAGE_NONE][0]['value'];
+      $integration_id = NULL;
+      $integration_type = NULL;
+      $values = array(
+        'title' => $node->title,
+        'file' => $file,
+        'publishDate' => $publish_date,
+        'webUrl' => $web_url,
+        'share' => $share,
+        'postDate' => $post_date,
+        'unpostDate' => $unpost_date,
+        'notesEnabled' => $notes_enabled,
+        'notify' => $notify,
+        'secure' => $secure,
+        'includeInFeed' => $include_in_feed,
+        'displayThumbnail' => $display_thumbnail,
+        'contentFolder' => $content_folder,
+        'accessGroups' => $access_groups,
+        'integrationId' => $integration_id,
+        'integrationType' => $integration_type,
+      );
+
+      // Post the request.
+      apprise_mobile_api_post('contents', $values);
+
+      // Remove temporary file.
+      unlink($filename);
+    }
   }
 }
 
@@ -308,7 +329,7 @@ function apprise_mobile_api_get_variables() {
   if (!empty($parsed_url['host']) and !defined('APPRISE_MOBILE_API_HOST')) {
     define('APPRISE_MOBILE_API_HOST', $host);
   }
-  $base_url = $host . '/v' . (int)APPRISE_MOBILE_API_VERSION;
+  $base_url = $host . '/v' . (int) APPRISE_MOBILE_API_VERSION;
   if ($mode = variable_get('apprise_mobile_api_mode', 0)) {
     $key = variable_get('apprise_mobile_api_prod_key', '');
     $prefix = variable_get('apprise_mobile_api_prod_prefix', '');
@@ -334,4 +355,49 @@ function apprise_mobile_api_get_variables() {
     'cron' => $cron,
     'execute' => $execute,
   );
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function apprise_mobile_api_form_alter(&$form, &$form_state, $form_id) {
+  if (isset($form['#node_edit_form'])) {
+    if (isset($form['field_apprise_mobile_api_post']) &&
+      isset($form['field_apprise_mobile_api_unpost'])) {
+      // Add jQuery code to default the Unpost date.
+      $form['#attached']['js'][] = array(
+        'data' => drupal_get_path('module', 'apprise_mobile_api') . '/apprise_mobile_api.js',
+        'type' => 'file',
+      );
+      // Set default dates if adding a new node.
+      if (empty($form['nid']['#value'])) {
+        $date_format = 'm/d/Y H:i';
+        $timezone = date_default_timezone_get();
+        date_default_timezone_set('UTC');
+        $today = format_date(strtotime('now'), 'custom', $date_format);
+        $plus15days = format_date(strtotime('+15 day'), 'custom', $date_format);
+        date_default_timezone_set($timezone);
+        $form['field_apprise_mobile_api_post'][LANGUAGE_NONE][0]['#default_value']['value'] = $today;
+        $form['field_apprise_mobile_api_post'][LANGUAGE_NONE][0]['#default_value']['value2'] = $today;
+        $form['field_apprise_mobile_api_post'][LANGUAGE_NONE][0]['#date_items']['value'] = $today;
+        $form['field_apprise_mobile_api_post'][LANGUAGE_NONE][0]['#date_items']['value2'] = $today;
+        $form['field_apprise_mobile_api_unpost'][LANGUAGE_NONE][0]['#default_value']['value'] = $plus15days;
+        $form['field_apprise_mobile_api_unpost'][LANGUAGE_NONE][0]['#default_value']['value2'] = $plus15days;
+        $form['field_apprise_mobile_api_unpost'][LANGUAGE_NONE][0]['#date_items']['value'] = $plus15days;
+        $form['field_apprise_mobile_api_unpost'][LANGUAGE_NONE][0]['#date_items']['value2'] = $plus15days;
+      }
+      // Add submit function to push content immediately.
+      $form['actions']['submit']['#submit'][] = 'apprise_mobile_api_node_edit_form_submit';
+    }
+  }
+}
+
+/**
+ * Node edit form submit callback.
+ */
+function apprise_mobile_api_node_edit_form_submit(&$from, &$form_state) {
+  if (isset($form_state['values']['field_apprise_mobile_api_send'][LANGUAGE_NONE][0]['value']) &&
+    isset($form_state['values']['field_apprise_mobile_api_push'][LANGUAGE_NONE][0]['value'])) {
+    apprise_mobile_api_push($form_state['values']['nid']);
+  }
 }
