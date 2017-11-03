@@ -49,7 +49,10 @@ function apprise_mobile_api_menu() {
 function apprise_mobile_api_cron() {
   $variables = apprise_mobile_api_get_variables();
 
-  if (!$run = $variables['execute']) {
+  $called_by = debug_backtrace()[1]['function'];
+  $run = (($called_by == 'apprise_mobile_api_settings_form_submit') && $variables['execute']);
+
+  if (!$run) {
     $cron = $variables['cron'];
     switch ($cron) {
       case 1:
@@ -61,10 +64,6 @@ function apprise_mobile_api_cron() {
         // This works only if cron runs hourly or
         // within this time frame (recommended).
         $run = !format_date(time(), 'custom', 'G');
-        break;
-
-      default:
-        $run = FALSE;
     }
   }
 

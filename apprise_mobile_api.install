@@ -24,6 +24,13 @@ function apprise_mobile_api_requirements($phase) {
 }
 
 /**
+ * Implements hook_enable().
+ */
+function apprise_mobile_api_enable() {
+  module_enable(array('date_popup'));
+}
+
+/**
  * Implements hook_uninstall().
  */
 function apprise_mobile_api_uninstall() {
