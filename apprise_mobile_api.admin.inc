@@ -86,6 +86,20 @@ function apprise_mobile_api_admin_settings() {
     '#default_value' => variable_get('apprise_mobile_api_types', array()),
     '#required' => FALSE,
   );
+  $form['apprise_mobile_api_settings']['apprise_mobile_api_image_field'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Thumbnail Image Field'),
+    '#default_value' => variable_get('apprise_mobile_api_image_field', 'field_image'),
+    '#description' => t('The machine name of the thumbnail image field.<br />This field should be included in the Content type(s) selected above.'),
+    '#size' => 16,
+  );
+  $form['apprise_mobile_api_settings']['apprise_mobile_api_image_style'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Thumbnail Image Style'),
+    '#default_value' => variable_get('apprise_mobile_api_image_style', 'fleximage'),
+    '#description' => t('The machine name of the image style used to generate thumbnails.'),
+    '#size' => 16,
+  );
   $form['apprise_mobile_api_settings']['apprise_mobile_api_limit'] = array(
     '#type' => 'textfield',
     '#title' => t('Limit'),

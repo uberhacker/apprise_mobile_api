@@ -127,7 +127,7 @@ function apprise_mobile_api_get($call = 'contents') {
     curl_setopt($ch, CURLOPT_MAXREDIRS, 10);
     curl_setopt($ch, CURLOPT_TIMEOUT, 30);
     curl_setopt($ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
-    curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.13) Gecko/20080311 Firefox/2.0.0.13');
+    //curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.13) Gecko/20080311 Firefox/2.0.0.13');
     $json_response = curl_exec($ch);
 
     if ($results = json_decode($json_response)) {
@@ -171,7 +171,11 @@ function apprise_mobile_api_post($call = 'contents', $values = array()) {
     $variables = apprise_mobile_api_get_variables();
     $base_url = $variables['base_url'];
     $code = $variables['key'];
-    $url = $base_url . '/' . $call . '?code=' . $code;
+    $url = $base_url . '/' . $call;
+    if (isset($values['id'])) {
+      $url .= '/' . $values['id'] . '/thumbnail';
+    }
+    $url .= '?code=' . $code;
     $headers = array('content-type: multipart/form-data');
 
     // Post the request.
@@ -186,8 +190,9 @@ function apprise_mobile_api_post($call = 'contents', $values = array()) {
     curl_setopt($ch, CURLOPT_MAXREDIRS, 10);
     curl_setopt($ch, CURLOPT_TIMEOUT, 30);
     curl_setopt($ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
-    curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.13) Gecko/20080311 Firefox/2.0.0.13');
+    //curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.13) Gecko/20080311 Firefox/2.0.0.13');
     $json_response = curl_exec($ch);
+
     if ($response = json_decode($json_response)) {
       if (isset($response->originalResponse)) {
         $response = json_decode($response->originalResponse);
@@ -195,6 +200,7 @@ function apprise_mobile_api_post($call = 'contents', $values = array()) {
       }
       elseif (isset($response->results->errors)) {
         $errors = array();
+        // Build errors array from results.
         foreach ($response->results->errors as $error) {
           $errors[] = $error->code . ': ' . $error->message;
         }
@@ -225,14 +231,19 @@ function apprise_mobile_api_post($call = 'contents', $values = array()) {
       }
       watchdog('apprise_mobile_api', $msg);
     }
+
+    // Get the content id.
+    $id = isset($response->_id) ? $response->_id : 0;
   }
   catch (Exception $e) {
+    $id = 0;
     $msg = 'Exception when processing the request: ' . $e->getMessage();
     if (variable_get('error_level', 0)) {
       drupal_set_message($msg, 'error');
     }
     watchdog('apprise_mobile_api', $msg, array(), WATCHDOG_ERROR);
   }
+  return $id;
 }
 
 /**
@@ -311,11 +322,57 @@ function apprise_mobile_api_push($nid = 0) {
         'integrationType' => $integration_type,
       );
 
-      // Post the request.
-      apprise_mobile_api_post('contents', $values);
+      // Post the body content request.
+      $id = apprise_mobile_api_post('contents', $values);
 
       // Remove temporary file.
       unlink($filename);
+
+      // Post the thumbnail request.
+      $field = variable_get('apprise_mobile_api_image_field', 'field_image');
+      if (!isset($node->{"$field"}[LANGUAGE_NONE][0]['uri'])) {
+        $msg = t('Field :field does not exist in the :type content type.', array(
+          ':field' => $field,
+          ':type' => $node->type,
+        ));
+        if (variable_get('error_level', 0)) {
+          drupal_set_message($msg, 'error');
+        }
+        watchdog('apprise_mobile_api', $msg, array(), WATCHDOG_ERROR);
+      }
+      if ($id && isset($node->{"$field"}[LANGUAGE_NONE][0]['uri'])) {
+        $styles = array();
+        foreach (image_styles() as $name => $value) {
+          $styles[] = $name;
+        }
+        $style = variable_get('apprise_mobile_api_image_style', 'fleximage');
+        // Check if the image style is available.
+        if (in_array($style, $styles)) {
+          // Generate a curl compatible file.
+          $scheme = file_default_scheme();
+          $fieldparts = explode('_', $field);
+          $fieldpath = implode('/', $fieldparts);
+          $basename = basename($node->{"$field"}[LANGUAGE_NONE][0]['uri']);
+          $basepath = 'styles/' . $style . '/' . $scheme . '/' . $fieldpath . '/' . $basename;
+          $fullpath = $scheme . '://' . $basepath;
+          $filename = drupal_realpath($fullpath);
+          $mimetype = file_get_mimetype($fullpath);
+          $file = curl_file_create($filename, $mimetype);
+
+          $values = array(
+            'id' => $id,
+            'file' => $file,
+          );
+          apprise_mobile_api_post('contents', $values);
+        }
+        else {
+          $msg = t('Image style :style is not available.', array(':style' => $style));
+          if (variable_get('error_level', 0)) {
+            drupal_set_message($msg, 'error');
+          }
+          watchdog('apprise_mobile_api', $msg, array(), WATCHDOG_ERROR);
+        }
+      }
     }
   }
 }
