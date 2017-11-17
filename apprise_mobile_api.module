@@ -349,15 +349,20 @@ function apprise_mobile_api_push($nid = 0) {
         // Check if the image style is available.
         if (in_array($style, $styles)) {
           // Generate a curl compatible file.
-          $scheme = file_default_scheme();
-          $fieldparts = explode('_', $field);
-          $fieldpath = implode('/', $fieldparts);
-          $basename = basename($node->{"$field"}[LANGUAGE_NONE][0]['uri']);
-          $basepath = 'styles/' . $style . '/' . $scheme . '/' . $fieldpath . '/' . $basename;
-          $fullpath = $scheme . '://' . $basepath;
-          $filename = drupal_realpath($fullpath);
-          $mimetype = file_get_mimetype($fullpath);
-          $file = curl_file_create($filename, $mimetype);
+          $uri = $node->{"$field"}[LANGUAGE_NONE][0]['uri'];
+          $image = image_style_path($style, $uri);
+          $filename = drupal_realpath($image);
+          if (file_exists($filename)) {
+            $mimetype = file_get_mimetype($image);
+            $file = curl_file_create($filename, $mimetype);
+          }
+          else {
+            $msg = t('Thumbnail file :image not found.', array(':image' => $image));
+            if (variable_get('error_level', 0)) {
+              drupal_set_message($msg, 'error');
+            }
+            watchdog('apprise_mobile_api', $msg, array(), WATCHDOG_ERROR);
+          }
 
           $values = array(
             'id' => $id,
