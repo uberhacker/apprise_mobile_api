@@ -349,8 +349,10 @@ function apprise_mobile_api_push($nid = 0) {
         // Check if the image style is available.
         if (in_array($style, $styles)) {
           // Generate a curl compatible file.
+          $image_style = image_style_load($style);
           $uri = $node->{"$field"}[LANGUAGE_NONE][0]['uri'];
           $image = image_style_path($style, $uri);
+          image_style_create_derivative($image_style, $uri, $image);
           $filename = drupal_realpath($image);
           if (file_exists($filename)) {
             $mimetype = file_get_mimetype($image);
