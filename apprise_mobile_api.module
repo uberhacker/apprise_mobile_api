@@ -163,9 +163,9 @@ function apprise_mobile_api_get($call = 'contents') {
 }
 
 /**
- * Post content via an API request.
+ * Post, put or delete content via an API request.
  */
-function apprise_mobile_api_post($call = 'contents', $values = array()) {
+function apprise_mobile_api_request($method = 'post', $call = 'contents', $values = array()) {
   try {
     // Build the request URL.
     $variables = apprise_mobile_api_get_variables();
@@ -178,10 +178,23 @@ function apprise_mobile_api_post($call = 'contents', $values = array()) {
     $url .= '?code=' . $code;
     $headers = array('content-type: multipart/form-data');
 
-    // Post the request.
+    // Submit the request.
     $msg = '';
     $ch = curl_init();
-    curl_setopt($ch, CURLOPT_POST, 1);
+    switch ($method) {
+      case 'delete':
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'DELETE');
+        break;
+      case 'post':
+        curl_setopt($ch, CURLOPT_POST, 1);
+        break;
+      case 'put':
+        curl_setopt($ch, CURLOPT_PUT, 1);
+        break;
+      default:
+        curl_setopt($ch, CURLOPT_HTTPGET, 1);
+    }
+
     curl_setopt($ch, CURLOPT_URL, $url);
     curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $values);
@@ -282,6 +295,7 @@ function apprise_mobile_api_push($nid = 0) {
       $date_format = 'Y-m-d\TH:i:s';
       $publish_date = format_date($node->created, 'custom', $date_format, 'UTC');
       $web_url = NULL;
+      $method = $node->field_apprise_mobile_api_method[LANGUAGE_NONE][0]['value'];
       $share = $node->field_apprise_mobile_api_share[LANGUAGE_NONE][0]['value'];
       $timezone = date_default_timezone_get();
       date_default_timezone_set('UTC');
@@ -323,7 +337,7 @@ function apprise_mobile_api_push($nid = 0) {
       );
 
       // Post the body content request.
-      $id = apprise_mobile_api_post('contents', $values);
+      $id = apprise_mobile_api_request($method, 'contents', $values);
 
       // Remove temporary file.
       unlink($filename);
@@ -370,7 +384,7 @@ function apprise_mobile_api_push($nid = 0) {
             'id' => $id,
             'file' => $file,
           );
-          apprise_mobile_api_post('contents', $values);
+          apprise_mobile_api_request($method, 'contents', $values);
         }
         else {
           $msg = t('Image style :style is not available.', array(':style' => $style));

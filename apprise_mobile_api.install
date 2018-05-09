@@ -9,6 +9,7 @@
  * Implements hook_requirements().
  */
 function apprise_mobile_api_requirements($phase) {
+  /*
   $requirements = array();
   $t = get_t();
   $has_curl = function_exists('curl_init');
@@ -21,6 +22,7 @@ function apprise_mobile_api_requirements($phase) {
     $requirements['curl']['description'] = $t('Linkedin module could not be installed because the PHP <a href="@curl_url">cURL</a> library is not available.', array('@curl_url' => 'http://php.net/manual/en/curl.setup.php'));
   }
   return $requirements;
+  */
 }
 
 /**

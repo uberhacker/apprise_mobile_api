@@ -169,6 +169,17 @@ function apprise_mobile_api_settings_form_submit($form, $form_state) {
         ),
       ),
     ),
+    'Method' => array(
+      'field_name' => 'field_apprise_mobile_api_method',
+      'type' => 'list_text',
+      'settings' => array(
+        'allowed_values' => array(
+          'post' => 'Add',
+          'put' => 'Edit',
+          'delete' => 'Delete',
+        ),
+      ),
+    ),
     'Push immediately' => array(
       'field_name' => 'field_apprise_mobile_api_push',
       'type' => 'list_boolean',
