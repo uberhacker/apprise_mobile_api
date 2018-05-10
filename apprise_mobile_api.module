@@ -342,6 +342,9 @@ function apprise_mobile_api_push($nid = 0) {
       );
 
       // Post the body content request.
+      if ($method != 'post') {
+        $values['id'] = apprise_mobile_api_request('get', 'contents', $values);
+      }
       $id = apprise_mobile_api_request($method, 'contents', $values);
 
       // Remove temporary file.
