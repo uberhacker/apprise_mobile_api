@@ -233,6 +233,11 @@ function apprise_mobile_api_request($method = 'post', $call = 'contents', $value
 
     // Debug messages.
     if (variable_get('apprise_mobile_api_debug', 0)) {
+      $msg = 'Request: ' . $url;
+      if (variable_get('error_level', 0)) {
+        drupal_set_message($msg);
+      }
+      watchdog('apprise_mobile_api', $msg);
       $msg = 'Request: ' . print_r($values, TRUE);
       if (variable_get('error_level', 0)) {
         drupal_set_message($msg);
