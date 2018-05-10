@@ -163,7 +163,7 @@ function apprise_mobile_api_get($call = 'contents') {
 }
 
 /**
- * Post, put or delete content via an API request.
+ * Get, post, put or delete content via an API request.
  */
 function apprise_mobile_api_request($method = 'post', $call = 'contents', $values = array()) {
   try {
@@ -341,7 +341,7 @@ function apprise_mobile_api_push($nid = 0) {
         'integrationType' => $integration_type,
       );
 
-      // Post the body content request.
+      // The body content request.
       if ($method != 'post') {
         $values['id'] = apprise_mobile_api_request('get', 'contents', $values);
       }
@@ -362,7 +362,7 @@ function apprise_mobile_api_push($nid = 0) {
         }
         watchdog('apprise_mobile_api', $msg, array(), WATCHDOG_ERROR);
       }
-      if ($id && isset($node->{"$field"}[LANGUAGE_NONE][0]['uri'])) {
+      if ($id && $method != 'get' && isset($node->{"$field"}[LANGUAGE_NONE][0]['uri'])) {
         $styles = array();
         foreach (image_styles() as $name => $value) {
           $styles[] = $name;
