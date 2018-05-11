@@ -103,81 +103,22 @@ function apprise_mobile_api_cron() {
 }
 
 /**
- * Get content via an API request.
+ * Get, add, edit or delete content via an API request.
  */
-function apprise_mobile_api_get($call = 'contents') {
+function apprise_mobile_api_request($method = 'post', $path = 'contents', $values = array(), $return = 'id') {
+  // Initialize values.
+  $id = 0;
+  $msg = '';
   $content = array();
-
   try {
     // Build the request URL.
     $variables = apprise_mobile_api_get_variables();
     $base_url = $variables['base_url'];
-    $params = array(
-      'limit' => $variables['limit'],
-      'offset' => $variables['offset'],
-      'code' => $variables['key'],
-    );
-    $url = $base_url . '/' . $call . '?' . http_build_query($params);
-
-    // Send the request.
-    $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, $url);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
-    curl_setopt($ch, CURLOPT_ENCODING, '');
-    curl_setopt($ch, CURLOPT_MAXREDIRS, 10);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-    curl_setopt($ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
-    //curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.13) Gecko/20080311 Firefox/2.0.0.13');
-    $json_response = curl_exec($ch);
-
-    if ($results = json_decode($json_response)) {
-      // Build array from results.
-      foreach ($results as $result) {
-        $content[$result->_id] = isset($result->title) ? $result->title : $result->name;
-      }
-    }
-
-    // Debug messages.
-    if (variable_get('apprise_mobile_api_debug', 0)) {
-      $msg = 'Request: ' . $url;
-      if (variable_get('error_level', 0)) {
-        drupal_set_message($msg, 'error');
-      }
-      watchdog('apprise_mobile_api', $msg);
-      $msg = 'Response: ' . print_r($results, TRUE);
-      if (variable_get('error_level', 0)) {
-        drupal_set_message($msg, 'error');
-      }
-      watchdog('apprise_mobile_api', $msg);
-    }
-  }
-  catch (Exception $e) {
-    $msg = 'Exception when processing the request: ' . $e->getMessage();
-    if (variable_get('error_level', 0)) {
-      drupal_set_message($msg, 'error');
-    }
-    watchdog('apprise_mobile_api', $msg, array(), WATCHDOG_ERROR);
-  }
-
-  return $content;
-}
-
-/**
- * Get, post, put or delete content via an API request.
- */
-function apprise_mobile_api_request($method = 'post', $call = 'contents', $values = array()) {
-  try {
-    // Build the request URL.
-    $variables = apprise_mobile_api_get_variables();
-    $base_url = $variables['base_url'];
-    $code = $variables['key'];
-    $url = $base_url . '/' . $call;
+    $url = $base_url . '/' . $path;
     if (isset($values['id'])) {
       $url .= '/' . $values['id'];
     }
-    $headers = array('content-type: multipart/form-data');
-    // Submit the request.
-    $msg = '';
+    // Initialize the request.
     $ch = curl_init();
     switch ($method) {
       case 'delete':
@@ -185,7 +126,9 @@ function apprise_mobile_api_request($method = 'post', $call = 'contents', $value
         break;
       case 'post':
         curl_setopt($ch, CURLOPT_POST, 1);
-        $url .= '/thumbnail';
+        if (isset($values['id'])) {
+          $url .= '/thumbnail';
+        }
         break;
       case 'put':
         curl_setopt($ch, CURLOPT_PUT, 1);
@@ -193,11 +136,28 @@ function apprise_mobile_api_request($method = 'post', $call = 'contents', $value
       default:
         curl_setopt($ch, CURLOPT_HTTPGET, 1);
     }
-    $url .= '?code=' . $code;
+    // Build query parameters.
+    if ($method == 'get') {
+      $params = array(
+        'limit' => $variables['limit'],
+        'offset' => $variables['offset'],
+        'code' => $variables['key'],
+      );
+    }
+    else {
+      $params = array(
+        'code' => $variables['key'],
+      );
+    }
+    $url .= '?' . http_build_query($params);
 
+    // Submit the request.
     curl_setopt($ch, CURLOPT_URL, $url);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $values);
+    if (in_array($method, array('post', 'put'))) {
+      $header = array('content-type: multipart/form-data');
+      curl_setopt($ch, CURLOPT_HTTPHEADER, $header);
+      curl_setopt($ch, CURLOPT_POSTFIELDS, $values);
+    }
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
     curl_setopt($ch, CURLOPT_ENCODING, '');
     curl_setopt($ch, CURLOPT_MAXREDIRS, 10);
@@ -206,21 +166,28 @@ function apprise_mobile_api_request($method = 'post', $call = 'contents', $value
     //curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.13) Gecko/20080311 Firefox/2.0.0.13');
     $json_response = curl_exec($ch);
 
-    if ($response = json_decode($json_response)) {
-      if (isset($response->originalResponse)) {
-        $response = json_decode($response->originalResponse);
-        $msg = $response->code . ': ' . $response->message;
+    // Parse the response.
+    if ($results = json_decode($json_response)) {
+      if (isset($results->originalResponse)) {
+        $results = json_decode($results->originalResponse);
+        $msg = $results->code . ': ' . $results->message;
       }
-      elseif (isset($response->results->errors)) {
+      elseif (isset($results->results->errors)) {
         $errors = array();
         // Build errors array from results.
-        foreach ($response->results->errors as $error) {
+        foreach ($results->results->errors as $error) {
           $errors[] = $error->code . ': ' . $error->message;
         }
         $msg = implode(', ', $errors);
       }
       else {
-        $msg = print_r($response, TRUE);
+        if ($method == 'get' && $return != 'id') {
+          // Build array from results.
+          foreach ($results as $result) {
+            $content[$result->_id] = isset($result->title) ? $result->title : $result->name;
+          }
+        }
+        $msg = print_r($results, TRUE);
       }
     }
     curl_close($ch);
@@ -251,17 +218,17 @@ function apprise_mobile_api_request($method = 'post', $call = 'contents', $value
     }
 
     // Get the content id.
-    $id = isset($response->_id) ? $response->_id : 0;
+    $id = isset($results->_id) ? $results->_id : 0;
   }
   catch (Exception $e) {
-    $id = 0;
     $msg = 'Exception when processing the request: ' . $e->getMessage();
     if (variable_get('error_level', 0)) {
       drupal_set_message($msg, 'error');
     }
     watchdog('apprise_mobile_api', $msg, array(), WATCHDOG_ERROR);
   }
-  return $id;
+  //watchdog('apprise_mobile_api', 'content: ' . print_r($content, TRUE), array());
+  return !empty($content) ? $content : $id;
 }
 
 /**
@@ -341,65 +308,68 @@ function apprise_mobile_api_push($nid = 0) {
         'integrationType' => $integration_type,
       );
 
-      // The body content request.
-      if ($method != 'post') {
+      // The content id request.
+      if (in_array($method, array('put', 'delete'))) {
         $values['id'] = apprise_mobile_api_request('get', 'contents', $values);
       }
+      // The body content request.
       $id = apprise_mobile_api_request($method, 'contents', $values);
 
       // Remove temporary file.
       unlink($filename);
 
-      // Post the thumbnail request.
-      $field = variable_get('apprise_mobile_api_image_field', 'field_image');
-      if (!isset($node->{"$field"}[LANGUAGE_NONE][0]['uri'])) {
-        $msg = t('Field :field does not exist in the :type content type.', array(
-          ':field' => $field,
-          ':type' => $node->type,
-        ));
-        if (variable_get('error_level', 0)) {
-          drupal_set_message($msg, 'error');
+      // The thumbnail request.
+      if (in_array($method, array('post', 'put'))) {
+        $field = variable_get('apprise_mobile_api_image_field', 'field_image');
+        if (!isset($node->{"$field"}[LANGUAGE_NONE][0]['uri'])) {
+          $msg = t('Field :field does not exist in the :type content type.', array(
+            ':field' => $field,
+            ':type' => $node->type,
+          ));
+          if (variable_get('error_level', 0)) {
+            drupal_set_message($msg, 'error');
+          }
+          watchdog('apprise_mobile_api', $msg, array(), WATCHDOG_ERROR);
         }
-        watchdog('apprise_mobile_api', $msg, array(), WATCHDOG_ERROR);
-      }
-      if ($id && $method != 'get' && isset($node->{"$field"}[LANGUAGE_NONE][0]['uri'])) {
-        $styles = array();
-        foreach (image_styles() as $name => $value) {
-          $styles[] = $name;
-        }
-        $style = variable_get('apprise_mobile_api_image_style', 'fleximage');
-        // Check if the image style is available.
-        if (in_array($style, $styles)) {
-          // Generate a curl compatible file.
-          $image_style = image_style_load($style);
-          $uri = $node->{"$field"}[LANGUAGE_NONE][0]['uri'];
-          $image = image_style_path($style, $uri);
-          image_style_create_derivative($image_style, $uri, $image);
-          $filename = drupal_realpath($image);
-          if (file_exists($filename)) {
-            $mimetype = file_get_mimetype($image);
-            $file = curl_file_create($filename, $mimetype);
+        if ($id && isset($node->{"$field"}[LANGUAGE_NONE][0]['uri'])) {
+          $styles = array();
+          foreach (image_styles() as $name => $value) {
+            $styles[] = $name;
+          }
+          $style = variable_get('apprise_mobile_api_image_style', 'fleximage');
+          // Check if the image style is available.
+          if (in_array($style, $styles)) {
+            // Generate a curl compatible file.
+            $image_style = image_style_load($style);
+            $uri = $node->{"$field"}[LANGUAGE_NONE][0]['uri'];
+            $image = image_style_path($style, $uri);
+            image_style_create_derivative($image_style, $uri, $image);
+            $filename = drupal_realpath($image);
+            if (file_exists($filename)) {
+              $mimetype = file_get_mimetype($image);
+              $file = curl_file_create($filename, $mimetype);
+            }
+            else {
+              $msg = t('Thumbnail file :image not found.', array(':image' => $image));
+              if (variable_get('error_level', 0)) {
+                drupal_set_message($msg, 'error');
+              }
+              watchdog('apprise_mobile_api', $msg, array(), WATCHDOG_ERROR);
+            }
+
+            $values = array(
+              'id' => $id,
+              'file' => $file,
+            );
+            apprise_mobile_api_request($method, 'contents', $values);
           }
           else {
-            $msg = t('Thumbnail file :image not found.', array(':image' => $image));
+            $msg = t('Image style :style is not available.', array(':style' => $style));
             if (variable_get('error_level', 0)) {
               drupal_set_message($msg, 'error');
             }
             watchdog('apprise_mobile_api', $msg, array(), WATCHDOG_ERROR);
           }
-
-          $values = array(
-            'id' => $id,
-            'file' => $file,
-          );
-          apprise_mobile_api_request($method, 'contents', $values);
-        }
-        else {
-          $msg = t('Image style :style is not available.', array(':style' => $style));
-          if (variable_get('error_level', 0)) {
-            drupal_set_message($msg, 'error');
-          }
-          watchdog('apprise_mobile_api', $msg, array(), WATCHDOG_ERROR);
         }
       }
     }

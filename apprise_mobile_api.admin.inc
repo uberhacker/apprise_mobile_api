@@ -169,6 +169,16 @@ function apprise_mobile_api_settings_form_submit($form, $form_state) {
         ),
       ),
     ),
+    'Push immediately' => array(
+      'field_name' => 'field_apprise_mobile_api_push',
+      'type' => 'list_boolean',
+      'settings' => array(
+        'allowed_values' => array(
+          0 => '',
+          1 => '',
+        ),
+      ),
+    ),
     'Method' => array(
       'field_name' => 'field_apprise_mobile_api_method',
       'type' => 'list_text',
@@ -180,28 +190,18 @@ function apprise_mobile_api_settings_form_submit($form, $form_state) {
         ),
       ),
     ),
-    'Push immediately' => array(
-      'field_name' => 'field_apprise_mobile_api_push',
-      'type' => 'list_boolean',
-      'settings' => array(
-        'allowed_values' => array(
-          0 => '',
-          1 => '',
-        ),
-      ),
-    ),
     'Destination folder' => array(
       'field_name' => 'field_apprise_mobile_api_folder',
       'type' => 'list_text',
       'settings' => array(
-        'allowed_values' => apprise_mobile_api_get('content-folders'),
+        'allowed_values' => apprise_mobile_api_request('get', 'content-folders', array(), 'content'),
       ),
     ),
     'Access group' => array(
       'field_name' => 'field_apprise_mobile_api_group',
       'type' => 'list_text',
       'settings' => array(
-        'allowed_values' => apprise_mobile_api_get('groups'),
+        'allowed_values' => apprise_mobile_api_request('get', 'groups', array(), 'content'),
       ),
     ),
     'Share' => array(
