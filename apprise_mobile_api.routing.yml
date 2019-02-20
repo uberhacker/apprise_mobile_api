@@ -1,0 +1,7 @@
+apprise_mobile_api.admin_settings:
+  path: /admin/config/content/apprise-mobile-api
+  defaults:
+    _title: 'APPrise Mobile API'
+    _form: \Drupal\apprise_mobile_api\Form\AppriseMobileApiAdminSettings
+  requirements:
+    _permission: 'administer site configuration'

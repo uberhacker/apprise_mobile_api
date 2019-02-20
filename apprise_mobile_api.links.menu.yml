@@ -1,0 +1,5 @@
+apprise_mobile_api.admin_settings:
+  route_name: apprise_mobile_api.admin_settings
+  title: 'APPrise Mobile API'
+  description: 'Adjust APPrise Mobile API settings.'
+  parent: system.admin_config_content

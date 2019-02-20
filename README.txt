@@ -2,8 +2,8 @@ APPrise Mobile API:
 ------------------
 Maintainers:
   Ed Reel (https://www.drupal.org/u/uberhacker)
-Requires - Drupal 7
-License - GPL (see LICENSE)
+Requires - Drupal 8
+License - GPL (see LICENSE.txt)
 
 Overview:
 --------
@@ -16,7 +16,7 @@ This module provides an interface to the API for APPrise Mobile Clients.
 Installation:
 ------------
 1. Download and unpack the apprise_mobile_api module directory in your modules folder
-   (this will usually be "sites/all/modules/").
+   (this will usually be "modules/contrib").
 2. Go to "Administer" -> "Modules" and enable the module.
 
 Configuration:

@@ -1,9 +1,0 @@
-name = APPrise Mobile API
-description = An interface to the API for APPrise Mobile Clients.
-core = 7.x
-configure = admin/config/content/apprise-mobile-api
-
-version = "7.x-1.0-dev"
-core = "7.x"
-project = "custom"
-dependencies[] = date

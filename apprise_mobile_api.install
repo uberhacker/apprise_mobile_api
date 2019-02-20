@@ -10,7 +10,7 @@
  */
 function apprise_mobile_api_requirements($phase) {
   $requirements = array();
-  $t = get_t();
+  $t = 't';
   $has_curl = function_exists('curl_init');
   $requirements['curl'] = array(
     'title' => $t('cURL'),
@@ -24,41 +24,8 @@ function apprise_mobile_api_requirements($phase) {
 }
 
 /**
- * Implements hook_enable().
+ * Implements hook_install().
  */
-function apprise_mobile_api_enable() {
-  module_enable(array('date_popup'));
-}
-
-/**
- * Implements hook_uninstall().
- */
-function apprise_mobile_api_uninstall() {
-  $bundles = array();
-  $types = variable_get('apprise_mobile_api_types', array());
-  foreach ($types as $type => $value) {
-    if ($value) {
-      $bundles[] = $type;
-    }
-  }
-  $fields = array(
-    'field_apprise_mobile_api_post',
-    'field_apprise_mobile_api_folder',
-  );
-  foreach ($bundles as $bundle) {
-    foreach ($fields as $field) {
-      if ($instance = field_info_instance('node', $field, $bundle)) {
-        field_delete_instance($instance, TRUE);
-      }
-    }
-  }
-  db_query("DELETE FROM {variable} WHERE name LIKE 'apprise_mobile_api_%'");
-}
-
-/**
- * Remove old variable settings.
- */
-function apprise_mobile_api_update_7001() {
-  variable_del('apprise_mobile_api_key');
-  variable_del('apprise_mobile_api_prefix');
+function apprise_mobile_api_install() {
+  \Drupal::service('module_installer')->install(array('date_popup'), TRUE);
 }

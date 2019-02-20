@@ -1,0 +1,34 @@
+apprise_mobile_api.settings:
+  type: mapping
+  label: 'APPrise Mobile API Settings'
+  mapping:
+    apprise_mobile_api_cron:
+      type: integer
+    apprise_mobile_api_days:
+      type: integer
+    apprise_mobile_api_debug:
+      type: integer
+    apprise_mobile_api_execute:
+      type: integer
+    apprise_mobile_api_host:
+      type: string
+    apprise_mobile_api_image_field:
+      type: string
+    apprise_mobile_api_image_style:
+      type: string
+    apprise_mobile_api_limit:
+      type: integer
+    apprise_mobile_api_mode:
+      type: integer
+    apprise_mobile_api_offset:
+      type: integer
+    apprise_mobile_api_prod_key:
+      type: string
+    apprise_mobile_api_prod_prefix:
+      type: string
+    apprise_mobile_api_test_key:
+      type: string
+    apprise_mobile_api_test_prefix:
+      type: string
+    apprise_mobile_api_types:
+      type: array

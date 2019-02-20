@@ -1,0 +1,15 @@
+apprise_mobile_api_cron: 0
+apprise_mobile_api_days: 1
+apprise_mobile_api_debug: 0
+apprise_mobile_api_execute: 0
+apprise_mobile_api_host: 'https://api.theemployeeapp.com'
+apprise_mobile_api_image_field: field_image
+apprise_mobile_api_image_style: fleximage
+apprise_mobile_api_limit: 10
+apprise_mobile_api_mode: 0
+apprise_mobile_api_offset: 0
+apprise_mobile_api_prod_key: ''
+apprise_mobile_api_prod_prefix: ''
+apprise_mobile_api_test_key: ''
+apprise_mobile_api_test_prefix: ''
+apprise_mobile_api_types: []

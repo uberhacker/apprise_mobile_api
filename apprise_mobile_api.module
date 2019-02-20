@@ -15,6 +15,9 @@ define('APPRISE_MOBILE_API_VERSION', '2.0.0');
 // Set the path to the API.
 define('APPRISE_MOBILE_API_PATH', drupal_get_path('module', 'apprise_mobile_api') . '/SwaggerClient-php');
 
+// Define the language.
+define('LANGUAGE_NONE', \Drupal\Core\Language\Language::LANGCODE_NOT_SPECIFIED);
+
 // For PHP < 5.5.  See http://php.net/manual/en/function.curl-file-create.php.
 if (!function_exists('curl_file_create')) {
   /**
@@ -23,24 +26,6 @@ if (!function_exists('curl_file_create')) {
   function curl_file_create($filename, $mimetype = '', $postname = '') {
     return "@$filename;filename=" . ($postname ?: basename($filename)) . ($mimetype ? ";type=$mimetype" : '');
   }
-}
-
-/**
- * Implements hook_menu().
- */
-function apprise_mobile_api_menu() {
-  $items = array();
-
-  $items['admin/config/content/apprise-mobile-api'] = array(
-    'title' => 'APPrise Mobile API',
-    'description' => 'Adjust APPrise Mobile API settings.',
-    'file' => 'apprise_mobile_api.admin.inc',
-    'page callback' => 'drupal_get_form',
-    'page arguments' => array('apprise_mobile_api_admin_settings'),
-    'access arguments' => array('administer site configuration'),
-  );
-
-  return $items;
 }
 
 /**
@@ -79,7 +64,7 @@ function apprise_mobile_api_cron() {
       }
 
       // Check for content that was added since 'apprise_mobile_api_days' ago.
-      $days_ago = '-' . variable_get('apprise_mobile_api_days', 1) . ' day';
+      $days_ago = '-' . $variables['days'] . ' day';
       $time = strtotime($days_ago);
       foreach ($bundles as $bundle) {
         // Check for all relevant bundle content that was added since 'apprise_mobile_api_days' ago.
@@ -94,10 +79,10 @@ function apprise_mobile_api_cron() {
     }
     catch (Exception $e) {
       $msg = 'Exception when calling apprise_mobile_api_post: ' . $e->getMessage();
-      if (variable_get('error_level', 0)) {
+      if ($variables['logging']->get('error_level') != 'hidden') {
         drupal_set_message($msg, 'error');
       }
-      watchdog('apprise_mobile_api', $msg, array(), WATCHDOG_ERROR);
+      $variables['logger']->error($msg, array());
     }
   }
 }
@@ -107,10 +92,10 @@ function apprise_mobile_api_cron() {
  */
 function apprise_mobile_api_get($call = 'contents') {
   $content = array();
+  $variables = apprise_mobile_api_get_variables();
 
   try {
     // Build the request URL.
-    $variables = apprise_mobile_api_get_variables();
     $base_url = $variables['base_url'];
     $params = array(
       'limit' => $variables['limit'],
@@ -138,25 +123,26 @@ function apprise_mobile_api_get($call = 'contents') {
     }
 
     // Debug messages.
-    if (variable_get('apprise_mobile_api_debug', 0)) {
+    if ($variables['debug']) {
       $msg = 'Request: ' . $url;
-      if (variable_get('error_level', 0)) {
+      if ($variables['logging']->get('error_level') != 'hidden') {
         drupal_set_message($msg, 'error');
       }
-      watchdog('apprise_mobile_api', $msg);
+
+      $variables['logger']->notice($msg, []);
       $msg = 'Response: ' . print_r($results, TRUE);
-      if (variable_get('error_level', 0)) {
+      if ($variables['logging']->get('error_level') != 'hidden') {
         drupal_set_message($msg, 'error');
       }
-      watchdog('apprise_mobile_api', $msg);
+      $variables['logger']->notice($msg, []);
     }
   }
   catch (Exception $e) {
     $msg = 'Exception when processing the request: ' . $e->getMessage();
-    if (variable_get('error_level', 0)) {
+    if ($variables['logging']->get('error_level') != 'hidden') {
       drupal_set_message($msg, 'error');
     }
-    watchdog('apprise_mobile_api', $msg, array(), WATCHDOG_ERROR);
+    $variables['logger']->error($msg, array());
   }
 
   return $content;
@@ -166,9 +152,10 @@ function apprise_mobile_api_get($call = 'contents') {
  * Post content via an API request.
  */
 function apprise_mobile_api_post($call = 'contents', $values = array()) {
+  $variables = apprise_mobile_api_get_variables();
+
   try {
     // Build the request URL.
-    $variables = apprise_mobile_api_get_variables();
     $base_url = $variables['base_url'];
     $code = $variables['key'];
     $url = $base_url . '/' . $call;
@@ -213,23 +200,23 @@ function apprise_mobile_api_post($call = 'contents', $values = array()) {
     curl_close($ch);
 
     // Response message.
-    if (variable_get('error_level', 0)) {
-      drupal_set_message($msg);
+    if ($variables['logging']->get('error_level') != 'hidden') {
+      drupal_set_message($msg, 'error');
     }
-    watchdog('apprise_mobile_api', $msg);
+    $variables['logger']->notice($msg, []);
 
     // Debug messages.
-    if (variable_get('apprise_mobile_api_debug', 0)) {
+    if ($variables['debug']) {
       $msg = 'Request: ' . print_r($values, TRUE);
-      if (variable_get('error_level', 0)) {
-        drupal_set_message($msg);
+      if ($variables['logging']->get('error_level') != 'hidden') {
+        drupal_set_message($msg, 'error');
       }
-      watchdog('apprise_mobile_api', $msg);
+      $variables['logger']->notice($msg, []);
       $msg = 'Response: ' . print_r($json_response, TRUE);
-      if (variable_get('error_level', 0)) {
-        drupal_set_message($msg);
+      if ($variables['logging']->get('error_level') != 'hidden') {
+        drupal_set_message($msg, 'error');
       }
-      watchdog('apprise_mobile_api', $msg);
+      $variables['logger']->notice($msg, []);
     }
 
     // Get the content id.
@@ -238,10 +225,10 @@ function apprise_mobile_api_post($call = 'contents', $values = array()) {
   catch (Exception $e) {
     $id = 0;
     $msg = 'Exception when processing the request: ' . $e->getMessage();
-    if (variable_get('error_level', 0)) {
+    if ($variables['logging']->get('error_level') != 'hidden') {
       drupal_set_message($msg, 'error');
     }
-    watchdog('apprise_mobile_api', $msg, array(), WATCHDOG_ERROR);
+    $variables['logger']->error($msg, array());
   }
   return $id;
 }
@@ -251,20 +238,22 @@ function apprise_mobile_api_post($call = 'contents', $values = array()) {
  */
 function apprise_mobile_api_push($nid = 0) {
   $node = node_load($nid);
+  $variables = apprise_mobile_api_get_variables();
+
   // Only send if checked.
   if (!empty($node->field_apprise_mobile_api_send[LANGUAGE_NONE][0]['value'])) {
     // Retrieve the content.
     $content = isset($node->body[LANGUAGE_NONE][0]['value']) ? check_markup($node->body[LANGUAGE_NONE][0]['value'], $node->body[LANGUAGE_NONE][0]['format']) : '';
     if ($content) {
       // Generate a curl compatible file.
-      $filename = variable_get('file_temporary_path', '/tmp') . '/' . time() . '.html';
+      $filename = \Drupal::config('system.file')->get('temporary') . '/' . time() . '.html';
       $file = curl_file_create($filename, 'text/html');
 
       // Base64 encode images.
       preg_match_all('|<img.*src="(.*)".*>|U', $content, $matches);
       if (isset($matches[1])) {
         foreach ($matches[1] as $path) {
-          $url = url($path, array('absolute' => TRUE));
+          $url = \Drupal\Core\Uri::fromUri($path, array('absolute' => TRUE));
           $type = pathinfo($path, PATHINFO_EXTENSION);
           $data = file_get_contents($url);
           $base64 = 'data:image/' . $type . ';base64,' . base64_encode($data);
@@ -329,23 +318,23 @@ function apprise_mobile_api_push($nid = 0) {
       unlink($filename);
 
       // Post the thumbnail request.
-      $field = variable_get('apprise_mobile_api_image_field', 'field_image');
+      $field = $variables['field'];
       if (!isset($node->{"$field"}[LANGUAGE_NONE][0]['uri'])) {
         $msg = t('Field :field does not exist in the :type content type.', array(
           ':field' => $field,
           ':type' => $node->type,
         ));
-        if (variable_get('error_level', 0)) {
+        if ($variables['logging']->get('error_level') != 'hidden') {
           drupal_set_message($msg, 'error');
         }
-        watchdog('apprise_mobile_api', $msg, array(), WATCHDOG_ERROR);
+        $variables['logger']->error($msg, array());
       }
       if ($id && isset($node->{"$field"}[LANGUAGE_NONE][0]['uri'])) {
         $styles = array();
         foreach (image_styles() as $name => $value) {
           $styles[] = $name;
         }
-        $style = variable_get('apprise_mobile_api_image_style', 'fleximage');
+        $style = $variables['style'];
         // Check if the image style is available.
         if (in_array($style, $styles)) {
           // Generate a curl compatible file.
@@ -353,17 +342,17 @@ function apprise_mobile_api_push($nid = 0) {
           $uri = $node->{"$field"}[LANGUAGE_NONE][0]['uri'];
           $image = image_style_path($style, $uri);
           image_style_create_derivative($image_style, $uri, $image);
-          $filename = drupal_realpath($image);
+          $filename = \Drupal::service("file_system")->realpath($image);
           if (file_exists($filename)) {
             $mimetype = file_get_mimetype($image);
             $file = curl_file_create($filename, $mimetype);
           }
           else {
             $msg = t('Thumbnail file :image not found.', array(':image' => $image));
-            if (variable_get('error_level', 0)) {
+            if ($variables['logging']->get('error_level') != 'hidden') {
               drupal_set_message($msg, 'error');
             }
-            watchdog('apprise_mobile_api', $msg, array(), WATCHDOG_ERROR);
+            $variables['logger']->error($msg, array());
           }
 
           $values = array(
@@ -374,10 +363,10 @@ function apprise_mobile_api_push($nid = 0) {
         }
         else {
           $msg = t('Image style :style is not available.', array(':style' => $style));
-          if (variable_get('error_level', 0)) {
+          if ($variables['logging']->get('error_level') != 'hidden') {
             drupal_set_message($msg, 'error');
           }
-          watchdog('apprise_mobile_api', $msg, array(), WATCHDOG_ERROR);
+          $variables['logger']->error($msg, array());
         }
       }
     }
@@ -388,43 +377,56 @@ function apprise_mobile_api_push($nid = 0) {
  * Get variables.
  */
 function apprise_mobile_api_get_variables() {
-  $host = variable_get('apprise_mobile_api_host', 'https://api.theemployeeapp.com');
+  $config = \Drupal::config('apprise_mobile_api.settings');
+  $host = $config->get('apprise_mobile_api_host');
   $parsed_url = parse_url($host);
   if (!empty($parsed_url['host']) and !defined('APPRISE_MOBILE_API_HOST')) {
     define('APPRISE_MOBILE_API_HOST', $host);
   }
   $base_url = $host . '/v' . (int) APPRISE_MOBILE_API_VERSION;
-  if ($mode = variable_get('apprise_mobile_api_mode', 0)) {
-    $key = variable_get('apprise_mobile_api_prod_key', '');
-    $prefix = variable_get('apprise_mobile_api_prod_prefix', '');
+  if ($mode = $config->get('mode')) {
+    $key = $config->get('prod_key');
+    $prefix = $config->get('prod_prefix');
   }
   else {
-    $key = variable_get('apprise_mobile_api_test_key', '');
-    $prefix = variable_get('apprise_mobile_api_test_prefix', '');
+    $key = $config->get('test_key');
+    $prefix = $config->get('test_prefix');
   }
-  $types = variable_get('apprise_mobile_api_types', array());
-  $limit = variable_get('apprise_mobile_api_limit', 10);
-  $offset = variable_get('apprise_mobile_api_offset', 0);
-  $cron = variable_get('apprise_mobile_api_cron', 0);
-  $execute = variable_get('apprise_mobile_api_execute', 0);
+  $cron = $config->get('cron');
+  $days = $config->get('days');
+  $debug = $config->get('debug');
+  $execute = $config->get('execute');
+  $field = $config->get('image_field');
+  $style = $config->get('image_style');
+  $limit = $config->get('limit');
+  $offset = $config->get('offset');
+  $logging = \Drupal::config('file.logging');
+  $logger = \Drupal::logger('apprise_mobile_api');
+  $types = $config->get('types');
   return array(
-    'host' => $host,
     'base_url' => $base_url,
-    'mode' => $mode,
-    'key' => $key,
-    'prefix' => $prefix,
-    'types' => $types,
-    'limit' => $limit,
-    'offset' => $offset,
     'cron' => $cron,
+    'days' => $days,
+    'debug' => $debug,
     'execute' => $execute,
+    'field' => $field,
+    'host' => $host,
+    'key' => $key,
+    'limit' => $limit,
+    'logger' => $logger,
+    'logging' => $logging,
+    'mode' => $mode,
+    'offset' => $offset,
+    'prefix' => $prefix,
+    'style' => $style,
+    'types' => $types,
   );
 }
 
 /**
  * Implements hook_form_alter().
  */
-function apprise_mobile_api_form_alter(&$form, &$form_state, $form_id) {
+function apprise_mobile_api_form_alter(&$form, \Drupal\Core\Form\FormStateInterface &$form_state, $form_id) {
   if (isset($form['#node_edit_form'])) {
     if (isset($form['field_apprise_mobile_api_post']) &&
       isset($form['field_apprise_mobile_api_unpost'])) {
@@ -459,9 +461,190 @@ function apprise_mobile_api_form_alter(&$form, &$form_state, $form_id) {
 /**
  * Node edit form submit callback.
  */
-function apprise_mobile_api_node_edit_form_submit(&$from, &$form_state) {
+function apprise_mobile_api_node_edit_form_submit(&$form, &$form_state) {
   if (isset($form_state['values']['field_apprise_mobile_api_send'][LANGUAGE_NONE][0]['value']) &&
     isset($form_state['values']['field_apprise_mobile_api_push'][LANGUAGE_NONE][0]['value'])) {
     apprise_mobile_api_push($form_state['values']['nid']);
   }
+}
+
+/**
+ * Submit callback for the API settings form.
+ */
+function apprise_mobile_api_settings_form_submit(&$form, &$form_state) {
+
+  // Field definitions.
+  $fields = array(
+    'Send to APPrise' => array(
+      'field_name' => 'apprise_mobile_api_send',
+      'entity_type' => 'node',
+      'type' => 'boolean',
+      'settings' => array(
+        'allowed_values' => array(
+          0 => '',
+          1 => '',
+        ),
+      ),
+    ),
+    'Push immediately' => array(
+      'field_name' => 'apprise_mobile_api_push',
+      'entity_type' => 'node',
+      'type' => 'boolean',
+      'settings' => array(
+        'allowed_values' => array(
+          0 => '',
+          1 => '',
+        ),
+      ),
+    ),
+    'Destination folder' => array(
+      'field_name' => 'apprise_mobile_api_folder',
+      'entity_type' => 'node',
+      'type' => 'text',
+      'settings' => array(
+        'allowed_values' => apprise_mobile_api_get('content-folders'),
+      ),
+    ),
+    'Access group' => array(
+      'field_name' => 'apprise_mobile_api_group',
+      'entity_type' => 'node',
+      'type' => 'text',
+      'settings' => array(
+        'allowed_values' => apprise_mobile_api_get('groups'),
+      ),
+    ),
+    'Share' => array(
+      'field_name' => 'apprise_mobile_api_share',
+      'entity_type' => 'node',
+      'type' => 'text',
+      'settings' => array(
+        'allowed_values' => array(
+          'SHARE_DISABLED' => 'Disabled',
+          'SHARE_ENABLED' => 'Enabled',
+          'SHARE_EMAIL_ONLY' => 'Email Only',
+        ),
+      ),
+    ),
+    'Post date' => array(
+      'field_name' => 'apprise_mobile_api_post',
+      'entity_type' => 'node',
+      'type' => 'datetime',
+      'settings' => array(
+        'granularity' => array('year', 'month', 'day', 'hour', 'minute'),
+        'tz_handling' => 'site',
+        'timezone_db' => date_default_timezone_get(),
+        'repeat' => 0,
+        'todate' => FALSE,
+      ),
+    ),
+    'Unpost date' => array(
+      'field_name' => 'apprise_mobile_api_unpost',
+      'entity_type' => 'node',
+      'type' => 'datetime',
+      'settings' => array(
+        'granularity' => array('year', 'month', 'day', 'hour', 'minute'),
+        'tz_handling' => 'site',
+        'timezone_db' => date_default_timezone_get(),
+        'repeat' => 0,
+        'todate' => FALSE,
+      ),
+    ),
+  );
+
+  // Bundles to include fields.
+  $types = $form_state->getValue('apprise_mobile_api_types');
+  $bundles = array();
+  foreach ($types as $type => $value) {
+    if ($value) {
+      $bundles[] = $type;
+    }
+  }
+
+  // Add fields to bundles.
+  if (!empty($bundles)) {
+    foreach ($fields as $label => $field) {
+      // Check if our field is not already created.
+      if (!\Drupal\field\Entity\FieldStorageConfig::loadByName('node', $field['field_name'])) {
+				// Create the field storage.
+				$field_storage = \Drupal\field\Entity\FieldStorageConfig::create($field);
+				$field_storage->save();
+      }
+      foreach ($bundles as $bundle) {
+        // Check if our field is not already attached to the content type.
+        if (!\Drupal\field\Entity\FieldConfig::loadByName('node', $bundle, $field['field_name'])) {
+          // Create the field instance on the bundle.
+          $instance = array(
+            'field_name' => $field['field_name'],
+            'entity_type' => 'node',
+            'label' => $label,
+            'bundle' => $bundle,
+            'settings' => array(
+              $bundle . '_node_form' => 1,
+            ),
+            'widget' => array(
+              'type' => $field['type'],
+            ),
+          );
+          $instance['display']['default']['type'] = 'hidden';
+          $instance['display']['teaser']['type'] = 'hidden';
+          if ($field['type'] == 'boolean') {
+            $instance['widget']['type'] = 'options_onoff';
+          }
+          if ($field['type'] == 'text') {
+            $instance['widget']['type'] = 'options_select';
+            $instance['required'] = TRUE;
+          }
+          if ($field['type'] == 'datetime') {
+            $instance['widget']['type'] = 'date_popup';
+          }
+          $instance['widget']['settings']['display_label'] = 1;
+          if ($instance['label'] == 'Share') {
+            $instance['default_value'] = array(array('value' => 'SHARE_DISABLED'));
+          }
+				  $field = \Drupal\field\Entity\FieldConfig::create($instance);
+				  $field->save();
+          // Enable the field on the form display.
+          $node_bundle = 'node.' . $bundle . '.default';
+          $form_display = \Drupal::entityTypeManager()->getStorage('entity_form_display');
+          if (!$form_display->load($node_bundle)) {
+            $form_display->create([
+              'target_entity_type' => 'node',
+              'bundle' => $bundle,
+						  'mode' => 'default',
+						  'status' => TRUE,
+						])->save();
+            $form_display->load($node_bundle);
+          }
+          $form_display->setComponent($field['field_name'], [
+            'type' => $field['type'],
+            'label' => 'above',
+            'settings' => ['display_label' => TRUE],
+          ])->save();
+        }
+      }
+    }
+  }
+
+  // Bundles to remove fields.
+  $previous_types = $form_state->getValue('apprise_mobile_api_previous_types');
+  $bundles_to_remove = array();
+  foreach ($previous_types as $type => $value) {
+    if ($value and !in_array($type, $bundles)) {
+      $bundles_to_remove[] = $type;
+    }
+  }
+
+  // Remove fields from bundles.
+  if (!empty($bundles_to_remove)) {
+    foreach ($fields as $label => $field) {
+      foreach ($bundles_to_remove as $bundle) {
+        if (\Drupal\field\Entity\FieldConfig::loadByName('node', $bundle, $field['field_name'])) {
+          \Drupal\field\Entity\FieldConfig::loadByName('node', $bundle, $field['field_name'])->delete();
+        }
+      }
+    }
+  }
+
+  // Run to execute a request.
+  apprise_mobile_api_cron();
 }
