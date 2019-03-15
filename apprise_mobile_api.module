@@ -615,11 +615,13 @@ function apprise_mobile_api_settings_form_submit(&$form, &$form_state) {
 						])->save();
             $form_display->load($node_bundle);
           }
+          /*
           $form_display->setComponent($field['field_name'], [
             'type' => $field['type'],
             'label' => 'above',
             'settings' => ['display_label' => TRUE],
           ])->save();
+          */
         }
       }
     }
