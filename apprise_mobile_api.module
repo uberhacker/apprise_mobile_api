@@ -476,7 +476,7 @@ function apprise_mobile_api_settings_form_submit(&$form, &$form_state) {
   // Field definitions.
   $fields = array(
     'Send to APPrise' => array(
-      'field_name' => 'apprise_mobile_api_send',
+      'field_name' => 'field_apprise_mobile_api_send',
       'entity_type' => 'node',
       'type' => 'boolean',
       'settings' => array(
@@ -487,7 +487,7 @@ function apprise_mobile_api_settings_form_submit(&$form, &$form_state) {
       ),
     ),
     'Push immediately' => array(
-      'field_name' => 'apprise_mobile_api_push',
+      'field_name' => 'field_apprise_mobile_api_push',
       'entity_type' => 'node',
       'type' => 'boolean',
       'settings' => array(
@@ -498,7 +498,7 @@ function apprise_mobile_api_settings_form_submit(&$form, &$form_state) {
       ),
     ),
     'Destination folder' => array(
-      'field_name' => 'apprise_mobile_api_folder',
+      'field_name' => 'field_apprise_mobile_api_folder',
       'entity_type' => 'node',
       'type' => 'text',
       'settings' => array(
@@ -506,7 +506,7 @@ function apprise_mobile_api_settings_form_submit(&$form, &$form_state) {
       ),
     ),
     'Access group' => array(
-      'field_name' => 'apprise_mobile_api_group',
+      'field_name' => 'field_apprise_mobile_api_group',
       'entity_type' => 'node',
       'type' => 'text',
       'settings' => array(
@@ -514,7 +514,7 @@ function apprise_mobile_api_settings_form_submit(&$form, &$form_state) {
       ),
     ),
     'Share' => array(
-      'field_name' => 'apprise_mobile_api_share',
+      'field_name' => 'field_apprise_mobile_api_share',
       'entity_type' => 'node',
       'type' => 'text',
       'settings' => array(
@@ -526,7 +526,7 @@ function apprise_mobile_api_settings_form_submit(&$form, &$form_state) {
       ),
     ),
     'Post date' => array(
-      'field_name' => 'apprise_mobile_api_post',
+      'field_name' => 'field_apprise_mobile_api_post',
       'entity_type' => 'node',
       'type' => 'datetime',
       'settings' => array(
@@ -538,7 +538,7 @@ function apprise_mobile_api_settings_form_submit(&$form, &$form_state) {
       ),
     ),
     'Unpost date' => array(
-      'field_name' => 'apprise_mobile_api_unpost',
+      'field_name' => 'field_apprise_mobile_api_unpost',
       'entity_type' => 'node',
       'type' => 'datetime',
       'settings' => array(
