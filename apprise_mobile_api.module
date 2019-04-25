@@ -164,6 +164,7 @@ function apprise_mobile_api_post($call = 'contents', $values = array()) {
     }
     $url .= '?code=' . $code;
     $headers = array('content-type: multipart/form-data');
+    $query_values =  http_build_query($values);
 
     // Post the request.
     $msg = '';
@@ -171,7 +172,7 @@ function apprise_mobile_api_post($call = 'contents', $values = array()) {
     curl_setopt($ch, CURLOPT_POST, 1);
     curl_setopt($ch, CURLOPT_URL, $url);
     curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($values));
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $query_values);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
     curl_setopt($ch, CURLOPT_ENCODING, '');
     curl_setopt($ch, CURLOPT_MAXREDIRS, 10);
@@ -207,13 +208,18 @@ function apprise_mobile_api_post($call = 'contents', $values = array()) {
 
     // Debug messages.
     if ($variables['debug']) {
-      /*
-      $msg = 'Request: ' . print_r($values, TRUE);
+      $msg = 'Request: ' . $url;
       if ($variables['logging']->get('error_level') != 'hidden') {
         drupal_set_message($msg, 'error');
       }
       $variables['logger']->notice($msg, []);
-      */
+
+      $msg = 'Request: ' . urldecode($query_values);
+      //$msg = 'Request: ' . print_r($values, TRUE);
+      if ($variables['logging']->get('error_level') != 'hidden') {
+        drupal_set_message($msg, 'error');
+      }
+      $variables['logger']->notice($msg, []);
 
       $msg = 'Response: ' . print_r($json_response, TRUE);
       if ($variables['logging']->get('error_level') != 'hidden') {
@@ -261,6 +267,8 @@ function apprise_mobile_api_push($nid = 0) {
           $data = file_get_contents($url);
           $base64 = 'data:image/' . $type . ';base64,' . base64_encode($data);
           $content = str_replace($path, $base64, $content);
+          // Remove non-printable characters.
+          $content = preg_replace('/[^[:print:]]/', '', $content);
         }
       }
 
