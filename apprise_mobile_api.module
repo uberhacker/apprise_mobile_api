@@ -93,28 +93,65 @@ function apprise_mobile_api_cron() {
 }
 
 /**
- * Get content via an API request.
+ * Get, add, edit or delete content via an API request.
  */
-function apprise_mobile_api_get($call = 'contents') {
-  $content = array();
+function apprise_mobile_api_request($method = 'post', $path = 'contents', $values = array(), $return = 'id') {
   $variables = apprise_mobile_api_get_variables();
   $debug = $variables['debug'];
   $logger = $variables['logger'];
   $logging = $variables['logging'];
 
+  // Initialize values.
+  $id = 0;
+  $msg = '';
+  $content = array();
   try {
     // Build the request URL.
     $base_url = $variables['base_url'];
-    $params = array(
-      'limit' => $variables['limit'],
-      'offset' => $variables['offset'],
-      'code' => $variables['key'],
-    );
-    $url = $base_url . '/' . $call . '?' . http_build_query($params);
-
-    // Send the request.
+    $url = $base_url . '/' . $path;
+    if (isset($values['id'])) {
+      $url .= '/' . $values['id'];
+    }
+    // Initialize the request.
     $ch = curl_init();
+    switch ($method) {
+      case 'delete':
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'DELETE');
+        break;
+      case 'post':
+        curl_setopt($ch, CURLOPT_POST, 1);
+        if (isset($values['id'])) {
+          $url .= '/thumbnail';
+        }
+        break;
+      case 'put':
+        curl_setopt($ch, CURLOPT_PUT, 1);
+        break;
+      default:
+        curl_setopt($ch, CURLOPT_HTTPGET, 1);
+    }
+    // Build query parameters.
+    if ($method == 'get') {
+      $params = array(
+        'limit' => $variables['limit'],
+        'offset' => $variables['offset'],
+        'code' => $variables['key'],
+      );
+    }
+    else {
+      $params = array(
+        'code' => $variables['key'],
+      );
+    }
+    $url .= '?' . http_build_query($params);
+
+    // Submit the request.
     curl_setopt($ch, CURLOPT_URL, $url);
+    if (in_array($method, array('post', 'put'))) {
+      $header = array('content-type: multipart/form-data');
+      curl_setopt($ch, CURLOPT_HTTPHEADER, $header);
+      curl_setopt($ch, CURLOPT_POSTFIELDS, $values);
+    }
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
     curl_setopt($ch, CURLOPT_ENCODING, '');
     curl_setopt($ch, CURLOPT_MAXREDIRS, 10);
@@ -123,12 +160,37 @@ function apprise_mobile_api_get($call = 'contents') {
     //curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.13) Gecko/20080311 Firefox/2.0.0.13');
     $json_response = curl_exec($ch);
 
+    // Parse the response.
     if ($results = json_decode($json_response)) {
-      // Build array from results.
-      foreach ($results as $result) {
-        $content[$result->_id] = isset($result->title) ? $result->title : $result->name;
+      if (isset($results->originalResponse)) {
+        $results = json_decode($results->originalResponse);
+        $msg = $results->code . ': ' . $results->message;
+      }
+      elseif (isset($results->results->errors)) {
+        $errors = array();
+        // Build errors array from results.
+        foreach ($results->results->errors as $error) {
+          $errors[] = $error->code . ': ' . $error->message;
+        }
+        $msg = implode(', ', $errors);
+      }
+      else {
+        if ($method == 'get' && $return != 'id') {
+          // Build array from results.
+          foreach ($results as $result) {
+            $content[$result->_id] = isset($result->title) ? $result->title : $result->name;
+          }
+        }
+        $msg = print_r($results, TRUE);
       }
     }
+    curl_close($ch);
+
+    // Response message.
+    if ($logging->get('error_level') != 'hidden') {
+      drupal_set_message($msg, 'notice');
+    }
+    $logger->notice($msg, array());
 
     // Debug messages.
     if ($debug) {
@@ -136,14 +198,21 @@ function apprise_mobile_api_get($call = 'contents') {
       if ($logging->get('error_level') != 'hidden') {
         drupal_set_message($msg, 'notice');
       }
-      $logger->notice($msg, []);
-
-      $msg = 'Response: ' . print_r($results, TRUE);
+      $logger->notice($msg, array());
+      $msg = 'Request: ' . print_r($values, TRUE);
       if ($logging->get('error_level') != 'hidden') {
         drupal_set_message($msg, 'notice');
       }
-      $logger->notice($msg, []);
+      $logger->notice($msg, array());
+      $msg = 'Response: ' . print_r($json_response, TRUE);
+      if ($logging->get('error_level') != 'hidden') {
+        drupal_set_message($msg, 'notice');
+      }
+      $logger->notice($msg, array());
     }
+
+    // Get the content id.
+    $id = isset($results->_id) ? $results->_id : 0;
   }
   catch (Exception $e) {
     $msg = 'Exception when processing the request: ' . $e->getMessage();
@@ -152,75 +221,7 @@ function apprise_mobile_api_get($call = 'contents') {
     }
     $logger->error($msg, array());
   }
-
-  return $content;
-}
-
-/**
- * Post content via an API request.
- */
-function apprise_mobile_api_post($call = 'contents', $values = array()) {
-  $variables = apprise_mobile_api_get_variables();
-  $base_url = $variables['base_url'];
-  $code = $variables['key'];
-  $debug = $variables['debug'];
-  $logger = $variables['logger'];
-  $logging = $variables['logging'];
-
-  // Build the request URL.
-  $url = $base_url . '/' . $call;
-  if (isset($values['id'])) {
-    $url .= '/' . $values['id'] . '/thumbnail';
-  }
-  // Create the mulitpart values
-  $multipart = [];
-  foreach($values as $key => $value){
-    $multipart[] = [
-      'name' => $key,
-      'contents' => $value,
-    ];
-  }
-  $options = [
-    'query' => [
-      'code' => $code,
-    ],
-    'multipart' => $multipart,
-    'debug' => $debug,
-  ];
-  try {
-    $client = \Drupal::httpClient();
-    $request = $client->request('POST', $url, $options);
-    $code = $request->getStatusCode();
-    if ($code == 200 || $code == 201) {
-      $response = json_decode($request->getBody());
-      if ($debug) {
-        $msg = t('@type: Published as %id.',
-        [
-          '@type' => isset($values['title']) ? $values['title'] : 'Thumbail',
-          '%id' => $response->_id,
-        ]);
-        if ($logging->get('error_level') != 'hidden') {
-          drupal_set_message($msg, 'notice');
-        }
-        $logger->notice($msg);
-      }
-      return $response->_id;
-    }
-    else {
-      $msg = 'Request error: ' . $code;
-      if ($logging->get('error_level') != 'hidden') {
-        drupal_set_message($msg, 'error');
-      }
-      $logger->error($msg);
-    }
-  }
-  catch (RequestException $e) {
-    $msg = 'Error publishing: ' . $e->getMessage();
-    if ($logging->get('error_level') != 'hidden') {
-      drupal_set_message($msg, 'error');
-    }
-    $logger->error($msg);
-  }
+  return !empty($content) ? $content : $id;
 }
 
 /**
@@ -238,9 +239,8 @@ function apprise_mobile_api_push($nid = 0) {
     // Retrieve the content.
     $content = !empty($node->body->getValue()[0]['value']) ? check_markup($node->body->getValue()[0]['value'], $node->body->getValue()[0]['format']) : '';
     if ($content) {
-      $filename = time();
-      $tmpfile = tempnam(sys_get_temp_dir(), $filename);
-      rename($tmpfile, $tmpfile .= '.html');
+      $tmpfile = tempnam(sys_get_temp_dir(), time());
+      $file = curl_file_create($tmpfile, 'text/html');
 
       // Base64 encode images.
       preg_match_all('|<img.*src="(.*)".*>|U', $content, $matches);
@@ -305,7 +305,7 @@ function apprise_mobile_api_push($nid = 0) {
       $integration_type = NULL;
       $values = array(
         'title' => $node->getTitle(),
-        'file' => fopen($tmpfile, 'r'),
+        'file' => $file,
         'publishDate' => $publish_date,
         'webUrl' => $web_url,
         'share' => $share,
@@ -330,20 +330,24 @@ function apprise_mobile_api_push($nid = 0) {
         $logger->notice($msg);
       }
       // Post the body content request.
-      $id = apprise_mobile_api_post('contents', $values);
+      $id = apprise_mobile_api_request('post', 'contents', $values);
 
       // Remove temporary file.
       unlink($tmpfile);
 
       // Post the thumbnail request.
       $field = $variables['field'];
-      if (empty($node->{"$field"})) {
+      if (!$node->hasField($field)) {
         $msg = t('Field :field does not exist in the :type content type.', array(
           ':field' => $field,
           ':type' => $node->type,
         ));
+        if ($logging->get('error_level') != 'hidden') {
+          drupal_set_message($msg, 'error');
+        }
+        $logger->error($msg);
       }
-      if ($id && $node->hasField($field)) {
+      elseif ($id) {
         $styles = array();
         $styles = \Drupal::entityTypeManager()->getStorage('image_style')->loadMultiple();
         $styles = array_keys($styles);
@@ -366,7 +370,7 @@ function apprise_mobile_api_push($nid = 0) {
               }
               $logger->notice($msg);
             }
-            apprise_mobile_api_post('contents', $values);
+            apprise_mobile_api_request('post', 'contents', $values);
           }
           else {
             $msg = t('Thumbnail file :image not found.', array(':image' => $image));
@@ -383,6 +387,13 @@ function apprise_mobile_api_push($nid = 0) {
           }
           $logger->error($msg, array());
         }
+      }
+      else {
+        $msg = t('Unable to generate an id for the content.');
+        if ($logging->get('error_level') != 'hidden') {
+          drupal_set_message($msg, 'error');
+        }
+        $logger->error($msg);
       }
     }
   }
@@ -517,7 +528,7 @@ function apprise_mobile_api_settings_form_submit(&$form, &$form_state) {
       'entity_type' => 'node',
       'type' => 'text',
       'settings' => array(
-        'allowed_values' => apprise_mobile_api_get('content-folders'),
+        'allowed_values' => apprise_mobile_api_request('get', 'content-folders'),
       ),
     ),
     'Access group' => array(
@@ -525,7 +536,7 @@ function apprise_mobile_api_settings_form_submit(&$form, &$form_state) {
       'entity_type' => 'node',
       'type' => 'text',
       'settings' => array(
-        'allowed_values' => apprise_mobile_api_get('groups'),
+        'allowed_values' => apprise_mobile_api_request('get', 'groups'),
       ),
     ),
     'Share' => array(
