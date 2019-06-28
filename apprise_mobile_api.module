@@ -358,7 +358,9 @@ function apprise_mobile_api_push($nid = 0) {
           $style = \Drupal::entityTypeManager()->getStorage('image_style')->load($style);
           $image = $node->field_image->entity->getFileUri();
           if (file_exists($image)) {
-            $file = fopen($image, 'r');
+            $image = drupal_realpath($image);
+            $type = mime_content_type($image);
+            $file = curl_file_create($image, $type);
             $values = array(
               'id' => $id,
               'file' => $file,
