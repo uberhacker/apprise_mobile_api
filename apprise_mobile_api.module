@@ -33,13 +33,18 @@ if (!function_exists('curl_file_create')) {
  */
 function apprise_mobile_api_cron() {
   $variables = apprise_mobile_api_get_variables();
+  $cron = $variables['cron'];
+  $days = $variables['days'];
+  $execute = $variables['execute'];
+  $logger = $variables['logger'];
+  $logging = $variables['logging'];
+  $types = $variables['types'];
 
   $backtrace = debug_backtrace();
   $called_by = $backtrace[1]['function'];
-  $run = (($called_by == 'apprise_mobile_api_settings_form_submit') && $variables['execute']);
+  $run = (($called_by == 'apprise_mobile_api_settings_form_submit') && $execute);
 
   if (!$run) {
-    $cron = $variables['cron'];
     switch ($cron) {
       case 1:
         $run = TRUE;
@@ -57,14 +62,14 @@ function apprise_mobile_api_cron() {
     try {
       // Retrieve all relevant bundles.
       $bundles = array();
-      foreach ($variables['types'] as $type => $value) {
+      foreach ($types as $type => $value) {
         if ($value) {
           $bundles[] = $type;
         }
       }
 
       // Check for content that was added since 'apprise_mobile_api_days' ago.
-      $days_ago = '-' . $variables['days'] . ' day';
+      $days_ago = '-' . $days . ' day';
       $time = strtotime($days_ago);
       foreach ($bundles as $bundle) {
         // Check for all relevant bundle content that was added since 'apprise_mobile_api_days' ago.
@@ -78,11 +83,11 @@ function apprise_mobile_api_cron() {
       }
     }
     catch (Exception $e) {
-      $msg = 'Exception when calling apprise_mobile_api_post: ' . $e->getMessage();
-      if ($variables['logging']->get('error_level') != 'hidden') {
+      $msg = 'Exception when calling apprise_mobile_api_push via cron: ' . $e->getMessage();
+      if ($logging->get('error_level') != 'hidden') {
         drupal_set_message($msg, 'error');
       }
-      $variables['logger']->error($msg, array());
+      $logger->error($msg, array());
     }
   }
 }
@@ -93,6 +98,9 @@ function apprise_mobile_api_cron() {
 function apprise_mobile_api_get($call = 'contents') {
   $content = array();
   $variables = apprise_mobile_api_get_variables();
+  $debug = $variables['debug'];
+  $logger = $variables['logger'];
+  $logging = $variables['logging'];
 
   try {
     // Build the request URL.
@@ -123,26 +131,26 @@ function apprise_mobile_api_get($call = 'contents') {
     }
 
     // Debug messages.
-    if ($variables['debug']) {
+    if ($debug) {
       $msg = 'Request: ' . $url;
-      if ($variables['logging']->get('error_level') != 'hidden') {
-        drupal_set_message($msg, 'error');
+      if ($logging->get('error_level') != 'hidden') {
+        drupal_set_message($msg, 'notice');
       }
-      $variables['logger']->notice($msg, []);
+      $logger->notice($msg, []);
 
       $msg = 'Response: ' . print_r($results, TRUE);
-      if ($variables['logging']->get('error_level') != 'hidden') {
-        drupal_set_message($msg, 'error');
+      if ($logging->get('error_level') != 'hidden') {
+        drupal_set_message($msg, 'notice');
       }
-      $variables['logger']->notice($msg, []);
+      $logger->notice($msg, []);
     }
   }
   catch (Exception $e) {
     $msg = 'Exception when processing the request: ' . $e->getMessage();
-    if ($variables['logging']->get('error_level') != 'hidden') {
+    if ($logging->get('error_level') != 'hidden') {
       drupal_set_message($msg, 'error');
     }
-    $variables['logger']->error($msg, array());
+    $logger->error($msg, array());
   }
 
   return $content;
@@ -153,93 +161,66 @@ function apprise_mobile_api_get($call = 'contents') {
  */
 function apprise_mobile_api_post($call = 'contents', $values = array()) {
   $variables = apprise_mobile_api_get_variables();
+  $base_url = $variables['base_url'];
+  $code = $variables['key'];
+  $debug = $variables['debug'];
+  $logger = $variables['logger'];
+  $logging = $variables['logging'];
 
+  // Build the request URL.
+  $url = $base_url . '/' . $call;
+  if (isset($values['id'])) {
+    $url .= '/' . $values['id'] . '/thumbnail';
+  }
+  // Create the mulitpart values
+  $multipart = [];
+  foreach($values as $key => $value){
+    $multipart[] = [
+      'name' => $key,
+      'contents' => $value,
+    ];
+  }
+  $options = [
+    'query' => [
+      'code' => $code,
+    ],
+    'multipart' => $multipart,
+    'debug' => $debug,
+  ];
   try {
-    // Build the request URL.
-    $base_url = $variables['base_url'];
-    $code = $variables['key'];
-    $url = $base_url . '/' . $call;
-    if (isset($values['id'])) {
-      $url .= '/' . $values['id'] . '/thumbnail';
-    }
-    $url .= '?code=' . $code;
-    $headers = array('content-type: multipart/form-data');
-    $query_values =  http_build_query($values);
-
-    // Post the request.
-    $msg = '';
-    $ch = curl_init();
-    curl_setopt($ch, CURLOPT_POST, 1);
-    curl_setopt($ch, CURLOPT_URL, $url);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $query_values);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
-    curl_setopt($ch, CURLOPT_ENCODING, '');
-    curl_setopt($ch, CURLOPT_MAXREDIRS, 10);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-    curl_setopt($ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
-    //curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.13) Gecko/20080311 Firefox/2.0.0.13');
-    $json_response = curl_exec($ch);
-
-    if ($response = json_decode($json_response)) {
-      if (isset($response->originalResponse)) {
-        $response = json_decode($response->originalResponse);
-        $msg = $response->code . ': ' . $response->message;
-      }
-      elseif (isset($response->results->errors)) {
-        $errors = array();
-        // Build errors array from results.
-        foreach ($response->results->errors as $error) {
-          $errors[] = $error->code . ': ' . $error->message;
+    $client = \Drupal::httpClient();
+    $request = $client->request('POST', $url, $options);
+    $code = $request->getStatusCode();
+    if ($code == 200 || $code == 201) {
+      $response = json_decode($request->getBody());
+      if ($debug) {
+        $msg = t('@type: Published as %id.',
+        [
+          '@type' => isset($values['title']) ? $values['title'] : 'Thumbail',
+          '%id' => $response->_id,
+        ]);
+        if ($logging->get('error_level') != 'hidden') {
+          drupal_set_message($msg, 'notice');
         }
-        $msg = implode(', ', $errors);
+        $logger->notice($msg);
       }
-      else {
-        $msg = print_r($response, TRUE);
-      }
+      return $response->_id;
     }
-    curl_close($ch);
-
-    // Response message.
-    if ($variables['logging']->get('error_level') != 'hidden') {
+    else {
+      $msg = 'Request error: ' . $code;
+      if ($logging->get('error_level') != 'hidden') {
+        drupal_set_message($msg, 'error');
+      }
+      $logger->error($msg);
+    }
+  }
+  catch (RequestException $e) {
+    $msg = 'Error publishing: ' . $e->getMessage();
+    if ($logging->get('error_level') != 'hidden') {
       drupal_set_message($msg, 'error');
     }
-    $variables['logger']->notice($msg, []);
-
-    // Debug messages.
-    if ($variables['debug']) {
-      $msg = 'Request: ' . $url;
-      if ($variables['logging']->get('error_level') != 'hidden') {
-        drupal_set_message($msg, 'error');
-      }
-      $variables['logger']->notice($msg, []);
-
-      $msg = 'Request: ' . urldecode($query_values);
-      //$msg = 'Request: ' . print_r($values, TRUE);
-      if ($variables['logging']->get('error_level') != 'hidden') {
-        drupal_set_message($msg, 'error');
-      }
-      $variables['logger']->notice($msg, []);
-
-      $msg = 'Response: ' . print_r($json_response, TRUE);
-      if ($variables['logging']->get('error_level') != 'hidden') {
-        drupal_set_message($msg, 'error');
-      }
-      $variables['logger']->notice($msg, []);
-    }
-
-    // Get the content id.
-    $id = isset($response->_id) ? $response->_id : 0;
+    $logger->error($msg);
   }
-  catch (Exception $e) {
-    $id = 0;
-    $msg = 'Exception when processing the request: ' . $e->getMessage();
-    if ($variables['logging']->get('error_level') != 'hidden') {
-      drupal_set_message($msg, 'error');
-    }
-    $variables['logger']->error($msg, array());
-  }
-  return $id;
 }
 
 /**
@@ -248,21 +229,40 @@ function apprise_mobile_api_post($call = 'contents', $values = array()) {
 function apprise_mobile_api_push($nid = 0) {
   $node = node_load($nid);
   $variables = apprise_mobile_api_get_variables();
+  $debug = $variables['debug'];
+  $logger = $variables['logger'];
+  $logging = $variables['logging'];
 
   // Only send if checked.
   if (!empty($node->field_apprise_mobile_api_send->getValue()[0]['value'])) {
     // Retrieve the content.
     $content = !empty($node->body->getValue()[0]['value']) ? check_markup($node->body->getValue()[0]['value'], $node->body->getValue()[0]['format']) : '';
     if ($content) {
-      // Generate a curl compatible file.
-      $filename = \Drupal::config('system.file')->get('path.temporary') . '/' . time() . '.html';
-      $file = curl_file_create($filename, 'text/html');
+      $filename = time();
+      $tmpfile = tempnam(sys_get_temp_dir(), $filename);
+      rename($tmpfile, $tmpfile .= '.html');
 
       // Base64 encode images.
       preg_match_all('|<img.*src="(.*)".*>|U', $content, $matches);
       if (isset($matches[1])) {
+        $scheme = file_default_scheme();
+        $public_url = file_create_url('public://');
+        $parsed = parse_url($public_url);
+        $public_path = $parsed['path'];
         foreach ($matches[1] as $path) {
-          $url = \Drupal\Core\Url::fromUri($path, array('absolute' => TRUE))->getUri();
+          // Detect if the path has a scheme.
+          if (strpos($path, $scheme) === 0) {
+            $url = \Drupal\Core\Url::fromUri($path, array('absolute' => TRUE))->getUri();
+          }
+          // Make sure relative paths have a scheme.
+          elseif (strpos($path, $public_path) === 0) {
+            $path = str_replace($public_path, $scheme . '://', $path);
+            $url = \Drupal\Core\Url::fromUri($path, array('absolute' => TRUE))->getUri();
+          }
+          // Assume the path is absolute.
+          else {
+            $url = $path;
+          }
           $type = pathinfo($path, PATHINFO_EXTENSION);
           $data = file_get_contents($url);
           $base64 = 'data:image/' . $type . ';base64,' . base64_encode($data);
@@ -273,7 +273,7 @@ function apprise_mobile_api_push($nid = 0) {
       }
 
       // Write the content to file.
-      if ($fp = fopen($filename, 'w')) {
+      if ($fp = fopen($tmpfile, 'w')) {
         fwrite($fp, $content);
         fclose($fp);
       }
@@ -304,8 +304,8 @@ function apprise_mobile_api_push($nid = 0) {
       $integration_id = NULL;
       $integration_type = NULL;
       $values = array(
-        'title' => $node->title,
-        'file' => $file,
+        'title' => $node->getTitle(),
+        'file' => fopen($tmpfile, 'r'),
         'publishDate' => $publish_date,
         'webUrl' => $web_url,
         'share' => $share,
@@ -322,11 +322,18 @@ function apprise_mobile_api_push($nid = 0) {
         'integrationType' => $integration_type,
       );
 
+      if ($debug) {
+        $msg = 'Content values: ' . print_r($values, TRUE);
+        if ($logging->get('error_level') != 'hidden') {
+          drupal_set_message($msg, 'notice');
+        }
+        $logger->notice($msg);
+      }
       // Post the body content request.
       $id = apprise_mobile_api_post('contents', $values);
 
       // Remove temporary file.
-      unlink($filename);
+      unlink($tmpfile);
 
       // Post the thumbnail request.
       $field = $variables['field'];
@@ -335,49 +342,46 @@ function apprise_mobile_api_push($nid = 0) {
           ':field' => $field,
           ':type' => $node->type,
         ));
-        if ($variables['logging']->get('error_level') != 'hidden') {
-          drupal_set_message($msg, 'error');
-        }
-        $variables['logger']->error($msg, array());
       }
-      if ($id && !empty($node->{"$field"})) {
+      if ($id && $node->hasField($field)) {
         $styles = array();
-        foreach (image_styles() as $name => $value) {
-          $styles[] = $name;
-        }
+        $styles = \Drupal::entityTypeManager()->getStorage('image_style')->loadMultiple();
+        $styles = array_keys($styles);
         $style = $variables['style'];
         // Check if the image style is available.
         if (in_array($style, $styles)) {
           // Generate a curl compatible file.
-          $image_style = image_style_load($style);
-          $uri = $node->{"$field"}->getValue()[0]['uri'];
-          $image = image_style_path($style, $uri);
-          image_style_create_derivative($image_style, $uri, $image);
-          $filename = \Drupal::service("file_system")->realpath($image);
-          if (file_exists($filename)) {
-            $mimetype = file_get_mimetype($image);
-            $file = curl_file_create($filename, $mimetype);
+          $style = \Drupal::entityTypeManager()->getStorage('image_style')->load($style);
+          $image = $node->field_image->entity->getFileUri();
+          if (file_exists($image)) {
+            $file = fopen($image, 'r');
+            $values = array(
+              'id' => $id,
+              'file' => $file,
+            );
+            if ($debug) {
+              $msg = 'Thumbnail values: ' . print_r($values, TRUE);
+              if ($logging->get('error_level') != 'hidden') {
+                drupal_set_message($msg, 'notice');
+              }
+              $logger->notice($msg);
+            }
+            apprise_mobile_api_post('contents', $values);
           }
           else {
             $msg = t('Thumbnail file :image not found.', array(':image' => $image));
-            if ($variables['logging']->get('error_level') != 'hidden') {
+            if ($logging->get('error_level') != 'hidden') {
               drupal_set_message($msg, 'error');
             }
-            $variables['logger']->error($msg, array());
+            $logger->error($msg, array());
           }
-
-          $values = array(
-            'id' => $id,
-            'file' => $file,
-          );
-          apprise_mobile_api_post('contents', $values);
         }
         else {
           $msg = t('Image style :style is not available.', array(':style' => $style));
-          if ($variables['logging']->get('error_level') != 'hidden') {
+          if ($logging->get('error_level') != 'hidden') {
             drupal_set_message($msg, 'error');
           }
-          $variables['logger']->error($msg, array());
+          $logger->error($msg, array());
         }
       }
     }
