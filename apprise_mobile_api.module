@@ -268,7 +268,7 @@ function apprise_mobile_api_push($nid = 0) {
           $base64 = 'data:image/' . $type . ';base64,' . base64_encode($data);
           $content = str_replace($path, $base64, $content);
           // Remove non-printable characters.
-          $content = preg_replace('/[^[:print:]]/', '', $content);
+          //$content = preg_replace('/[^[:print:]]/', '', $content);
         }
       }
 
