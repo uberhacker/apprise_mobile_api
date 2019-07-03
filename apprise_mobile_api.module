@@ -252,25 +252,26 @@ function apprise_mobile_api_push($nid = 0) {
         foreach ($matches[1] as $path) {
           // Detect if the path has a scheme.
           if (strpos($path, $scheme) === 0) {
-            $url = \Drupal\Core\Url::fromUri($path, array('absolute' => TRUE))->getUri();
+            $url = file_create_url($path);
           }
           // Make sure relative paths have a scheme.
           elseif (strpos($path, $public_path) === 0) {
-            $path = str_replace($public_path, $scheme . '://', $path);
-            $url = \Drupal\Core\Url::fromUri($path, array('absolute' => TRUE))->getUri();
+            $uri = str_replace($public_path, $scheme . '://', $path);
+            $url = file_create_url($uri);
           }
           // Assume the path is absolute.
           else {
             $url = $path;
           }
-          $type = pathinfo($path, PATHINFO_EXTENSION);
-          $data = file_get_contents($url);
+          $type = pathinfo($url, PATHINFO_EXTENSION);
+          $data = file_get_contents(urldecode($url));
           $base64 = 'data:image/' . $type . ';base64,' . base64_encode($data);
           $content = str_replace($path, $base64, $content);
-          // Remove non-printable characters.
-          //$content = preg_replace('/[^[:print:]]/', '', $content);
         }
       }
+
+      // Remove non-printable characters.
+      $content = preg_replace('/[^[:print:]]/', '', $content);
 
       // Write the content to file.
       if ($fp = fopen($tmpfile, 'w')) {
