@@ -84,7 +84,7 @@ function apprise_mobile_api_cron() {
     }
     catch (Exception $e) {
       $msg = 'Exception when calling apprise_mobile_api_push via cron: ' . $e->getMessage();
-      if ($logging->get('error_level') != 'hidden') {
+      if ($logging->get('error_level') != 'hide') {
         drupal_set_message($msg, 'error');
       }
       $logger->error($msg, array());
@@ -186,26 +186,26 @@ function apprise_mobile_api_request($method = 'post', $path = 'contents', $value
     }
     curl_close($ch);
 
-    // Response message.
-    if ($logging->get('error_level') != 'hidden') {
-      drupal_set_message($msg, 'notice');
-    }
-    $logger->notice($msg, array());
-
-    // Debug messages.
     if ($debug) {
+      // Response message.
+      if ($logging->get('error_level') != 'hide') {
+        drupal_set_message($msg, 'notice');
+      }
+      $logger->notice($msg, array());
+
+      // Debug messages.
       $msg = 'Request: ' . $url;
-      if ($logging->get('error_level') != 'hidden') {
+      if ($logging->get('error_level') != 'hide') {
         drupal_set_message($msg, 'notice');
       }
       $logger->notice($msg, array());
       $msg = 'Request: ' . print_r($values, TRUE);
-      if ($logging->get('error_level') != 'hidden') {
+      if ($logging->get('error_level') != 'hide') {
         drupal_set_message($msg, 'notice');
       }
       $logger->notice($msg, array());
       $msg = 'Response: ' . print_r($json_response, TRUE);
-      if ($logging->get('error_level') != 'hidden') {
+      if ($logging->get('error_level') != 'hide') {
         drupal_set_message($msg, 'notice');
       }
       $logger->notice($msg, array());
@@ -216,7 +216,7 @@ function apprise_mobile_api_request($method = 'post', $path = 'contents', $value
   }
   catch (Exception $e) {
     $msg = 'Exception when processing the request: ' . $e->getMessage();
-    if ($logging->get('error_level') != 'hidden') {
+    if ($logging->get('error_level') != 'hide') {
       drupal_set_message($msg, 'error');
     }
     $logger->error($msg, array());
@@ -325,7 +325,7 @@ function apprise_mobile_api_push($nid = 0) {
 
       if ($debug) {
         $msg = 'Content values: ' . print_r($values, TRUE);
-        if ($logging->get('error_level') != 'hidden') {
+        if ($logging->get('error_level') != 'hide') {
           drupal_set_message($msg, 'notice');
         }
         $logger->notice($msg);
@@ -343,7 +343,7 @@ function apprise_mobile_api_push($nid = 0) {
           ':field' => $field,
           ':type' => $node->type,
         ));
-        if ($logging->get('error_level') != 'hidden') {
+        if ($logging->get('error_level') != 'hide') {
           drupal_set_message($msg, 'error');
         }
         $logger->error($msg);
@@ -368,7 +368,7 @@ function apprise_mobile_api_push($nid = 0) {
             );
             if ($debug) {
               $msg = 'Thumbnail values: ' . print_r($values, TRUE);
-              if ($logging->get('error_level') != 'hidden') {
+              if ($logging->get('error_level') != 'hide') {
                 drupal_set_message($msg, 'notice');
               }
               $logger->notice($msg);
@@ -377,7 +377,7 @@ function apprise_mobile_api_push($nid = 0) {
           }
           else {
             $msg = t('Thumbnail file :image not found.', array(':image' => $image));
-            if ($logging->get('error_level') != 'hidden') {
+            if ($logging->get('error_level') != 'hide') {
               drupal_set_message($msg, 'error');
             }
             $logger->error($msg, array());
@@ -385,7 +385,7 @@ function apprise_mobile_api_push($nid = 0) {
         }
         else {
           $msg = t('Image style :style is not available.', array(':style' => $style));
-          if ($logging->get('error_level') != 'hidden') {
+          if ($logging->get('error_level') != 'hide') {
             drupal_set_message($msg, 'error');
           }
           $logger->error($msg, array());
@@ -393,7 +393,7 @@ function apprise_mobile_api_push($nid = 0) {
       }
       else {
         $msg = t('Unable to generate an id for the content.');
-        if ($logging->get('error_level') != 'hidden') {
+        if ($logging->get('error_level') != 'hide') {
           drupal_set_message($msg, 'error');
         }
         $logger->error($msg);
@@ -429,7 +429,7 @@ function apprise_mobile_api_get_variables() {
   $style = $config->get('apprise_mobile_api_image_style');
   $limit = $config->get('apprise_mobile_api_limit');
   $offset = $config->get('apprise_mobile_api_offset');
-  $logging = \Drupal::config('file.logging');
+  $logging = \Drupal::config('system.logging');
   $logger = \Drupal::logger('apprise_mobile_api');
   $types = $config->get('types');
   return array(
