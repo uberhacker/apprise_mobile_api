@@ -295,7 +295,7 @@ function apprise_mobile_api_push($nid = 0) {
       }
       date_default_timezone_set($timezone);
       $notes_enabled = 'false';
-      $notify = 'true';
+      $notify = 'false';
       $secure = 'false';
       $include_in_feed = 'true';
       $display_thumbnail = 'true';
