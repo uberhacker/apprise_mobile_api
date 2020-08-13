@@ -7,6 +7,7 @@
 
 namespace Drupal\apprise_mobile_api\Form;
 
+use Drupal\Core\Entity\EntityTypeBundleInfo;
 use Drupal\Core\Form\ConfigFormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Render\Element;
@@ -26,9 +27,7 @@ class AppriseMobileApiAdminSettings extends ConfigFormBase {
   public function submitForm(array &$form, FormStateInterface $form_state) {
     $config = $this->config('apprise_mobile_api.settings');
     $form['#tree'] = FALSE;
-  //dsm($form);
     foreach (Element::children($form['apprise_mobile_api_settings']) as $variable) {
-      //$config->set($variable, $form_state->getValue($form[$variable]['#parents']));
       $config->set($variable, $form_state->getValue($variable));
     }
     $config->save();
@@ -47,11 +46,11 @@ class AppriseMobileApiAdminSettings extends ConfigFormBase {
     return ['apprise_mobile_api.settings'];
   }
 
-  public function buildForm(array $form, \Drupal\Core\Form\FormStateInterface $form_state) {
+  public function buildForm(array $form, FormStateInterface $form_state) {
 
     // Get content types options.
-    $bundles = entity_get_bundles('node');
     $content_types = [];
+    $bundles = \Drupal::service('entity_type.bundle.info')->getBundleInfo('node');
     foreach ($bundles as $bundle => $info) {
       $content_types[$bundle] = $info['label'];
     }

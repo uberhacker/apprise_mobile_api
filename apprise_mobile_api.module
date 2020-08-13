@@ -1,5 +1,9 @@
 <?php
 
+use Drupal\Core\Language\Language;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\field\Entity\FieldStorageConfig;
+use Drupal\field\Entity\FieldConfig;
 /**
  * @file
  * An interface to the API for APPrise Mobile Clients.
@@ -16,7 +20,7 @@ define('APPRISE_MOBILE_API_VERSION', '2.0.0');
 define('APPRISE_MOBILE_API_PATH', drupal_get_path('module', 'apprise_mobile_api') . '/SwaggerClient-php');
 
 // Define the language.
-define('LANGUAGE_NONE', \Drupal\Core\Language\Language::LANGCODE_NOT_SPECIFIED);
+define('LANGUAGE_NONE', Language::LANGCODE_NOT_SPECIFIED);
 
 // For PHP < 5.5.  See http://php.net/manual/en/function.curl-file-create.php.
 if (!function_exists('curl_file_create')) {
@@ -54,7 +58,7 @@ function apprise_mobile_api_cron() {
         // Only run cron between 12:00 and 1:00 AM.
         // This works only if cron runs hourly or
         // within this time frame (recommended).
-        $run = !format_date(time(), 'custom', 'G');
+        $run = !\Drupal::service('date.formatter')->format(time(), 'custom', 'G');
     }
   }
 
@@ -73,7 +77,7 @@ function apprise_mobile_api_cron() {
       $time = strtotime($days_ago);
       foreach ($bundles as $bundle) {
         // Check for all relevant bundle content that was added since 'apprise_mobile_api_days' ago.
-        $rows = db_query("SELECT nid FROM {node} WHERE type = :bundle AND created >= :time", array(
+        $rows = \Drupal::database()->query("SELECT nid FROM {node} WHERE type = :bundle AND created >= :time", array(
           ':bundle' => $bundle,
           ':time' => $time,
         ));
@@ -85,7 +89,7 @@ function apprise_mobile_api_cron() {
     catch (Exception $e) {
       $msg = 'Exception when calling apprise_mobile_api_push via cron: ' . $e->getMessage();
       if ($logging->get('error_level') != 'hide') {
-        drupal_set_message($msg, 'error');
+        \Drupal::messenger()->addError($msg);
       }
       $logger->error($msg, array());
     }
@@ -189,24 +193,24 @@ function apprise_mobile_api_request($method = 'post', $path = 'contents', $value
     if ($debug) {
       // Response message.
       if ($logging->get('error_level') != 'hide') {
-        drupal_set_message($msg, 'notice');
+        \Drupal::messenger()->addNotice($msg);
       }
       $logger->notice($msg, array());
 
       // Debug messages.
       $msg = 'Request: ' . $url;
       if ($logging->get('error_level') != 'hide') {
-        drupal_set_message($msg, 'notice');
+        \Drupal::messenger()->addNotice($msg);
       }
       $logger->notice($msg, array());
       $msg = 'Request: ' . print_r($values, TRUE);
       if ($logging->get('error_level') != 'hide') {
-        drupal_set_message($msg, 'notice');
+        \Drupal::messenger()->addNotice($msg);
       }
       $logger->notice($msg, array());
       $msg = 'Response: ' . print_r($json_response, TRUE);
       if ($logging->get('error_level') != 'hide') {
-        drupal_set_message($msg, 'notice');
+        \Drupal::messenger()->addNotice($msg);
       }
       $logger->notice($msg, array());
     }
@@ -217,7 +221,7 @@ function apprise_mobile_api_request($method = 'post', $path = 'contents', $value
   catch (Exception $e) {
     $msg = 'Exception when processing the request: ' . $e->getMessage();
     if ($logging->get('error_level') != 'hide') {
-      drupal_set_message($msg, 'error');
+      \Drupal::messenger()->addError($msg);
     }
     $logger->error($msg, array());
   }
@@ -228,7 +232,7 @@ function apprise_mobile_api_request($method = 'post', $path = 'contents', $value
  * Push content to APPrise.
  */
 function apprise_mobile_api_push($nid = 0) {
-  $node = node_load($nid);
+  $node = \Drupal::service('entity_type.manager')->getStorage('node')->load($nid);
   $variables = apprise_mobile_api_get_variables();
   $debug = $variables['debug'];
   $logger = $variables['logger'];
@@ -245,7 +249,7 @@ function apprise_mobile_api_push($nid = 0) {
       // Base64 encode images.
       preg_match_all('|<img.*src="(.*)".*>|U', $content, $matches);
       if (isset($matches[1])) {
-        $scheme = file_default_scheme();
+        $scheme = \Drupal::config('system.file')->get('default_scheme');
         $public_url = file_create_url('public://');
         $parsed = parse_url($public_url);
         $public_path = $parsed['path'];
@@ -281,7 +285,7 @@ function apprise_mobile_api_push($nid = 0) {
 
       // Generate values to pass to APPrise.
       $date_format = 'Y-m-d\TH:i:s';
-      $publish_date = format_date($node->created->getValue()[0]['value'], 'custom', $date_format, 'UTC');
+      $publish_date = \Drupal::service('date.formatter')->format($node->created->getValue()[0]['value'], 'custom', $date_format, 'UTC');
       $web_url = NULL;
       $share = $node->field_apprise_mobile_api_share->getValue()[0]['value'];
       $timezone = date_default_timezone_get();
@@ -289,10 +293,10 @@ function apprise_mobile_api_push($nid = 0) {
       $post_date = NULL;
       $unpost_date = NULL;
       if (isset($node->field_apprise_mobile_api_post->getValue()[0]['value'])) {
-        $post_date = format_date(strtotime($node->field_apprise_mobile_api_post->getValue()[0]['value']), 'custom', $date_format);
+        $post_date = \Drupal::service('date.formatter')->format(strtotime($node->field_apprise_mobile_api_post->getValue()[0]['value']), 'custom', $date_format);
       }
       if (isset($node->field_apprise_mobile_api_unpost->getValue()[0]['value'])) {
-        $unpost_date = format_date(strtotime($node->field_apprise_mobile_api_unpost->getValue()[0]['value']), 'custom', $date_format);
+        $unpost_date = \Drupal::service('date.formatter')->format(strtotime($node->field_apprise_mobile_api_unpost->getValue()[0]['value']), 'custom', $date_format);
       }
       date_default_timezone_set($timezone);
       $notes_enabled = 'false';
@@ -326,7 +330,7 @@ function apprise_mobile_api_push($nid = 0) {
       if ($debug) {
         $msg = 'Content values: ' . print_r($values, TRUE);
         if ($logging->get('error_level') != 'hide') {
-          drupal_set_message($msg, 'notice');
+          \Drupal::messenger()->addNotice($msg);
         }
         $logger->notice($msg);
       }
@@ -344,7 +348,7 @@ function apprise_mobile_api_push($nid = 0) {
           ':type' => $node->type,
         ));
         if ($logging->get('error_level') != 'hide') {
-          drupal_set_message($msg, 'error');
+          \Drupal::messenger()->addError($msg);
         }
         $logger->error($msg);
       }
@@ -359,7 +363,7 @@ function apprise_mobile_api_push($nid = 0) {
           $style = \Drupal::entityTypeManager()->getStorage('image_style')->load($style);
           $image = $node->field_image->entity->getFileUri();
           if (file_exists($image)) {
-            $image = drupal_realpath($image);
+            $image = \Drupal::service('file_system')->realpath($image);
             $type = mime_content_type($image);
             $file = curl_file_create($image, $type);
             $values = array(
@@ -369,7 +373,7 @@ function apprise_mobile_api_push($nid = 0) {
             if ($debug) {
               $msg = 'Thumbnail values: ' . print_r($values, TRUE);
               if ($logging->get('error_level') != 'hide') {
-                drupal_set_message($msg, 'notice');
+                \Drupal::messenger()->addNotice($msg);
               }
               $logger->notice($msg);
             }
@@ -378,7 +382,7 @@ function apprise_mobile_api_push($nid = 0) {
           else {
             $msg = t('Thumbnail file :image not found.', array(':image' => $image));
             if ($logging->get('error_level') != 'hide') {
-              drupal_set_message($msg, 'error');
+              \Drupal::messenger()->addError($msg);
             }
             $logger->error($msg, array());
           }
@@ -386,7 +390,7 @@ function apprise_mobile_api_push($nid = 0) {
         else {
           $msg = t('Image style :style is not available.', array(':style' => $style));
           if ($logging->get('error_level') != 'hide') {
-            drupal_set_message($msg, 'error');
+            \Drupal::messenger()->addError($msg);
           }
           $logger->error($msg, array());
         }
@@ -394,7 +398,7 @@ function apprise_mobile_api_push($nid = 0) {
       else {
         $msg = t('Unable to generate an id for the content.');
         if ($logging->get('error_level') != 'hide') {
-          drupal_set_message($msg, 'error');
+          \Drupal::messenger()->addError($msg);
         }
         $logger->error($msg);
       }
@@ -455,7 +459,7 @@ function apprise_mobile_api_get_variables() {
 /**
  * Implements hook_form_alter().
  */
-function apprise_mobile_api_form_alter(&$form, \Drupal\Core\Form\FormStateInterface &$form_state, $form_id) {
+function apprise_mobile_api_form_alter(&$form, FormStateInterface &$form_state, $form_id) {
   if (isset($form['field_apprise_mobile_api_post']) &&
     isset($form['field_apprise_mobile_api_unpost'])) {
     // Add jQuery code to default the Unpost date.
@@ -470,8 +474,8 @@ function apprise_mobile_api_form_alter(&$form, \Drupal\Core\Form\FormStateInterf
       $date_format = 'm/d/Y H:i';
       $timezone = date_default_timezone_get();
       date_default_timezone_set('UTC');
-      $today = format_date(strtotime('now'), 'custom', $date_format);
-      $plus15days = format_date(strtotime('+15 day'), 'custom', $date_format);
+      $today = \Drupal::service('date.formatter')->format(strtotime('now'), 'custom', $date_format);
+      $plus15days = \Drupal::service('date.formatter')->format(strtotime('+15 day'), 'custom', $date_format);
       date_default_timezone_set($timezone);
       $form['field_apprise_mobile_api_post'][LANGUAGE_NONE][0]['#default_value']['value'] = $today;
       $form['field_apprise_mobile_api_post'][LANGUAGE_NONE][0]['#default_value']['value2'] = $today;
@@ -593,14 +597,14 @@ function apprise_mobile_api_settings_form_submit(&$form, &$form_state) {
   if (!empty($bundles)) {
     foreach ($fields as $label => $field) {
       // Check if our field is not already created.
-      if (!\Drupal\field\Entity\FieldStorageConfig::loadByName('node', $field['field_name'])) {
+      if (!FieldStorageConfig::loadByName('node', $field['field_name'])) {
 				// Create the field storage.
-				$field_storage = \Drupal\field\Entity\FieldStorageConfig::create($field);
+				$field_storage = FieldStorageConfig::create($field);
 				$field_storage->save();
       }
       foreach ($bundles as $bundle) {
         // Check if our field is not already attached to the content type.
-        if (!\Drupal\field\Entity\FieldConfig::loadByName('node', $bundle, $field['field_name'])) {
+        if (!FieldConfig::loadByName('node', $bundle, $field['field_name'])) {
           // Create the field instance on the bundle.
           $instance = array(
             'field_name' => $field['field_name'],
@@ -630,7 +634,7 @@ function apprise_mobile_api_settings_form_submit(&$form, &$form_state) {
           if ($instance['label'] == 'Share') {
             $instance['default_value'] = array(array('value' => 'SHARE_DISABLED'));
           }
-				  $field = \Drupal\field\Entity\FieldConfig::create($instance);
+				  $field = FieldConfig::create($instance);
 				  $field->save();
           // Enable the field on the form display.
           $node_bundle = 'node.' . $bundle . '.default';
@@ -669,8 +673,8 @@ function apprise_mobile_api_settings_form_submit(&$form, &$form_state) {
   if (!empty($bundles_to_remove)) {
     foreach ($fields as $label => $field) {
       foreach ($bundles_to_remove as $bundle) {
-        if (\Drupal\field\Entity\FieldConfig::loadByName('node', $bundle, $field['field_name'])) {
-          \Drupal\field\Entity\FieldConfig::loadByName('node', $bundle, $field['field_name'])->delete();
+        if (FieldConfig::loadByName('node', $bundle, $field['field_name'])) {
+          FieldConfig::loadByName('node', $bundle, $field['field_name'])->delete();
         }
       }
     }

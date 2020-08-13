@@ -1,5 +1,8 @@
 name: 'APPrise Mobile API'
 description: 'An interface to the API for APPrise Mobile Clients.'
-core: 8.x
+core_version_requirement: ^8.8 || ^9
 version: 8.x-1.x-dev
 type: module
+hidden: false
+dependencies:
+  - date_popup:date_popup
